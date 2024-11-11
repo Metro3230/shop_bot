@@ -1,0 +1,5 @@
+
+# токены, пароли
+TG_TOKEN=your tg token
+OPENAI_API_KEY=your api ai token
+SERVICE_PASS="your service pass"
