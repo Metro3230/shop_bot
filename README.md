@@ -26,5 +26,5 @@ this is experiments tg AI chat bot )
 
 и еще этот ебучий 
 --break-system-packages
-каждый раз сука, ебаный красноглазый люнох
+каждый раз сука, е2й красноглазый люнох
 
