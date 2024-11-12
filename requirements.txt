@@ -4,3 +4,4 @@ pyTelegramBotAPI==4.23.0
 python-dotenv==1.0.1
 Requests==2.32.3
 telegramify_markdown==0.1.15
+aiohttp==3.10.10
