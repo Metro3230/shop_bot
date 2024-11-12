@@ -9,12 +9,14 @@ from telebot.async_telebot import AsyncTeleBot
 from telebot import types
 from config import mainconf
 import telegramify_markdown #библитека преобразования markdown в телеграммный markdown_n2
+import shutil
 
 
 script_dir = Path(__file__).parent  # Определяем путь к текущему скрипту
 data_dir = script_dir / 'data'
 log_file = script_dir / data_dir / 'log.log'
 env_file = script_dir / data_dir / '.env'
+data_zip = script_dir / 'data.zip'
 
 load_dotenv(env_file)
 tg_token = os.getenv('TG_TOKEN')    # читаем token ai c .env
@@ -41,6 +43,29 @@ async def remove_limit(chat_id, message): #---обновление токена 
 
     except Exception as e:
         pass
+    
+async def handle_dw_data(chat_id, message): #---скачивание данных------------------------------------+
+    try:
+        command_parts = message.split(maxsplit=2)         # Разделяем текст команды на части
+
+        if len(command_parts) < 2:         # Проверяем, что есть и пароль
+            await bot.send_message(chat_id, "Ошибка: формат команды /dw_data <pass>")
+            return
+        
+        input_password = command_parts[1]
+
+        if input_password == os.getenv('SERVICE_PASS'):        # Проверяем правильность пароля
+            shutil.make_archive(str(data_zip).replace('.zip', ''), 'zip', data_dir)
+            with open(data_zip, 'rb') as file:
+                await bot.send_document(chat_id, file)
+            os.remove(data_zip)
+            # logging.info('data скачен пользователем ' + str(chat_id))
+        else:
+            await bot.send_message(chat_id, "Неверный пароль.")
+
+    except Exception as e:
+        await bot.send_message(chat_id, f"Произошла ошибка: {e}")
+
 #----------------------------------------------------------------------------------------
 
 
@@ -59,6 +84,8 @@ async def echo_message(message):
                                             'что то еще\n')
         elif message_text.startswith('/remove_limit'):
             await remove_limit(chat_id, message_text)
+        elif message_text.startswith('/dw_data'):
+            await handle_dw_data(chat_id, message_text)
             
     else:
         if chat.get_msg_count(chat_id) > mainconf.msgs_limit:            
@@ -68,9 +95,9 @@ async def echo_message(message):
             await bot.send_message(chat_id, mainconf.limit_msg, reply_markup=keyboard)                  # Отправка сообщение с ссылкой
         else:
             chat.save_message_to_json(chat_id, "user", username, message_text)   #записываем текст сообщения от ЮЗЕРА в историю сообщений
-            # response = openAI.req_to_ai(chat.get_last_messages(chat_id))   #отправляем историю чата (чат ид) боту
-            # response_text = response.choices[0].message.content         #парсим текст ответа
-            response_text = openAI.req_to_ai_TEST(chat.get_last_messages(chat_id))   #ТЕСТОВЫЙ ОТВЕТ БЕЗ ТРАТЫ ТОКЕНОВ
+            response = openAI.req_to_ai(chat.get_last_messages(chat_id))   #отправляем историю чата (чат ид) боту
+            response_text = response.choices[0].message.content         #парсим текст ответа
+            # response_text = openAI.req_to_ai_TEST(chat.get_last_messages(chat_id))   #ТЕСТОВЫЙ ОТВЕТ БЕЗ ТРАТЫ ТОКЕНОВ
             response_text = telegramify_markdown.markdownify(response_text)      # чистим markdown
             chat.save_message_to_json(chat_id, "assistant", username, response_text)      #записываем текст сообщения от БОТА в историю сообщений
             await bot.send_message(chat_id, response_text, parse_mode='MarkdownV2')     #отправляем ответ
