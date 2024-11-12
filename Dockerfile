@@ -11,14 +11,14 @@ RUN apt-get update && \
 
 
 # Копируем весь проект в контейнер
-COPY . /mk_req_check
+COPY . /shop_bot
 
 # Переходим в рабочую директорию
-WORKDIR /mk_req_check
+WORKDIR /shop_bot
 
 # Устанавливаем зависимости
 RUN pip3 install --no-cache-dir --break-system-packages -r requirements.txt
 
 # Указываем точку входа (entrypoint) для запуска
-#CMD ["python3", "main_script.py"]
+CMD ["python3", "main_script.py"]
 
