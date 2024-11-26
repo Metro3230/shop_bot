@@ -9,7 +9,7 @@ msg_hist_dir = script_dir / 'data/msg_hits'   #папка с историями 
 
 
 
-def save_message_to_json(chat_id, role, sender_name, message): #добавление сообщения
+def save_message_to_json(chat_id, role, message, sender_name=None): #добавление сообщения
 
     file_name = f"{msg_hist_dir}/{chat_id}.json"    # Формируем имя файла
     
@@ -30,7 +30,7 @@ def save_message_to_json(chat_id, role, sender_name, message): #добавлен
         data = {
             "Sender Name": sender_name,
             "Messages Today": 0,
-            "Spam_Flag": 0,
+            "Spam Flag": 0,
             "Last Update Date": today_date,
             "Messages": []
         }
@@ -65,8 +65,7 @@ def get_msg_count(chat_id): #получтиь количетсво сообще�
         json.dump(data, file, ensure_ascii=False, indent=4)
         
     return msgs_count
-    
-    
+        
     
 
 def get_last_messages(chat_id): #извлечение последних count сообщений из chat_id
@@ -121,8 +120,8 @@ def spam_flag(chat_id, variable=None): # флаг спам-рассылки (е�
         else:
             state = data["Spam Flag"]
             return state
-        
-        
+    
+    
 
 # chat_id = 678035955
 # spam_flag(chat_id, 1)
@@ -132,8 +131,7 @@ def spam_flag(chat_id, variable=None): # флаг спам-рассылки (е�
 
 
 # # Пример вызова функции
-# chat_id = 6780359955
-# count = 100  # Количество последних сообщений, которые нужно получить
+# chat_id = 7080566621
 # print(get_last_messages(chat_id))
 # print(get_msg_count(chat_id))
 

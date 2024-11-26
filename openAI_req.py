@@ -1,5 +1,5 @@
 from dotenv import load_dotenv
-from openai import OpenAI
+from openai import AsyncOpenAI
 from pathlib import Path
 from config import AIconf
 import os
@@ -12,38 +12,39 @@ env_file = script_dir / data_dir / '.env'
 load_dotenv(env_file)
 ai_API_key = os.getenv('OPENAI_API_KEY')    # читаем token ai c .env
  
-client = OpenAI(
+client = AsyncOpenAI(
     api_key=ai_API_key,
     base_url=AIconf.ai_API_url,
 )
+
+contacts_key_words = AIconf.contacts_key_words  #массив с ключевыми словами, изменяющими модель поведения
 
 system_role = {"role": "system", "content": AIconf.ai_role}
 system_role_contacts = {"role": "system", "content": AIconf.ai_role + '. ' + AIconf.ai_role_instruction}
 
 
-def is_part_in_list(strCheck):   #Провера наличия клоючевых слов
-    arr = AIconf.contacts_key_words
-    for i in range(len(arr)):
-        if strCheck.find(arr[i]) != -1:
+def is_part_in_list(strCheck):   #Провера наличия клоючевых слов     
+    for i in range(len(contacts_key_words)):
+        if strCheck.find(contacts_key_words[i]) != -1:
             return True
     return False
 
 
-def req_to_ai(msgs):
+async def req_to_ai(msgs):
     if (is_part_in_list(msgs[-1]['content'])):      #если есть в последней фразе слова из списка 
         msgs.insert(0, system_role_contacts)
     else:
         msgs.insert(0, system_role)
-    response = client.chat.completions.create(
+    response = await client.chat.completions.create(
     model="gpt-4o",
     messages=msgs,
     )
     return response
 
 
-def req_to_ai_norole(msg):
+async def req_to_ai_norole(msg):
     req = [{"role": "user", "content": msg}]
-    response = client.chat.completions.create(
+    response = await client.chat.completions.create(
     model="gpt-4o",
     messages=req,
     )
