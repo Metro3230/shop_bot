@@ -8,15 +8,14 @@ from telebot.async_telebot import AsyncTeleBot
 from telebot import types
 from config import mainconf
 import telegramify_markdown #библитека преобразования markdown в телеграммный markdown_n2
-import shutil
 from datetime import datetime
 import logging
 import asyncio
+import shutil
 
 script_dir = Path(__file__).parent  # Определяем путь к текущему скрипту
 data_dir = script_dir / 'data'
 msg_hist_dir = data_dir / 'msg_hits'   #папка с историями сообщений
-msg_arch_dir = msg_hist_dir / 'archive'
 log_file = data_dir / 'log.log'
 env_file = data_dir / '.env'
 data_zip = script_dir / 'data.zip'
@@ -44,7 +43,7 @@ logging.getLogger().setLevel(logging.WARNING)
 
 temp_spam_text = None
 
-
+    
 #-------------------------------------\/-сервисные команды-\/----------------------------------------------------
 
 async def remove_limit(chat_id, message): #---обнуление лимитов-----------------------------------------+
@@ -52,7 +51,7 @@ async def remove_limit(chat_id, message): #---обнуление лимитов-
         command_parts = message.split(maxsplit=2)         # Разделяем текст команды на части
 
         if len(command_parts) < 2:         # Проверяем, что есть и пароль, и новый токен
-            await bot.send_message(chat_id, "Ошибка: формат команды /remove_limit <пароль>")
+            await bot.send_message(chat_id, "Ошибка: формат команды /remove_limit пароль")
             return
         
         input_password = command_parts[1]
@@ -72,7 +71,7 @@ async def simple_question(chat_id, message): #---вопрос к ИИ без р�
         command_parts = message.split(maxsplit=2)         # Разделяем текст команды на части
 
         if len(command_parts) < 2:         # Проверяем, что есть и пароль, и новый токен
-            await bot.send_message(chat_id, "Формат команды /q <пароль> <вопрос>\n" +
+            await bot.send_message(chat_id, "Формат команды: \"/q пароль вопрос\"\n" +
                                       "Обрати внимание, что это обычный запрос к модели CHAT-GPT4o без каких либо " +
                                       "предписаний поведения и знания контекста ранней переписки и предыдущих вопросов. " +
                                       "Формулируй вопрос развёрнуто, описывая контекст и поведение вручную, если это требуется. ")
@@ -99,7 +98,7 @@ async def handle_dw_data(chat_id, message): #---скачивание данны�
         command_parts = message.split(maxsplit=2)         # Разделяем текст команды на части
 
         if len(command_parts) < 2:         # Проверяем, что есть и пароль
-            await bot.send_message(chat_id, "Ошибка: формат команды /dw_data <пароль>")
+            await bot.send_message(chat_id, "Ошибка: формат команды /dw_data пароль")
             return
         
         input_password = command_parts[1]
@@ -127,7 +126,7 @@ async def handle_new_service_pass(chat_id, message): #----------обновлен
         command_parts = message.split(maxsplit=2)         # Разделяем текст команды на части
 
         if len(command_parts) < 3:         # Проверяем, что есть и пароль, и новый токен
-            await bot.send_message(chat_id, "Ошибка: формат команды /new_service_pass <сервисный_пароль> <новый_сервисный_пароль>")
+            await bot.send_message(chat_id, "Ошибка: формат команды /new_service_pass сервисный_пароль новый_сервисный_пароль")
             return
         
         input_password = command_parts[1]
@@ -175,6 +174,34 @@ def update_env_variable(key, value): #---функция обновления п�
     
     load_dotenv(env_file, override=True)    # повторно загружаем значения из env с перезаписью
 
+
+async def get_stat(chat_id, message): #---вывод статистики-------------------------------------+
+    try:
+        command_parts = message.split(maxsplit=2)         # Разделяем текст команды на части
+
+        if len(command_parts) < 2:         # Проверяем, что есть и пароль
+            await bot.send_message(chat_id, "Ошибка: формат команды /stat пароль")
+            return
+        
+        input_password = command_parts[1]
+
+        active_users = chat.get_active_users()
+        departed_users = chat.get_departed_users()
+        
+
+
+        if input_password == os.getenv('SERVICE_PASS'):        # Проверяем правильность пароля
+            text = (f'Активных пользователей: {active_users}\n'+
+                    f'Удаливших чат с ботом: {departed_users}')
+            text = telegramify_markdown.markdownify(text)      # чистим markdown
+            await bot.send_message(chat_id, text, parse_mode='MarkdownV2')                  # Отправка сообщение с ссылкой
+        else:
+            await bot.send_message(chat_id, "Неверный пароль.")
+
+    except Exception as e:
+        await bot.send_message(chat_id, f"Произошла ошибка: {e}")
+        logger.error(f"Ошибка скачивания данных - {e}")
+        
 #----------------------------------------------------------------------------------------------------------
 
 
@@ -185,16 +212,18 @@ async def new_spam(chat_id, message): #---создание СПАМ рассыл
         command_parts = message.split(maxsplit=2)         # Разделяем текст команды на части
 
         if len(command_parts) < 2:         # Проверяем, что есть и пароль, и новый токен
-            await bot.send_message(chat_id, "Ошибка: формат команды /spam <пароль>")
+            await bot.send_message(chat_id, "Ошибка: формат команды /spam пароль")
             return
         
         input_password = command_parts[1]
               
         if input_password == os.getenv('SERVICE_PASS'):        # Проверяем правильность сервисного пароля
-            await bot.send_message(chat_id, 'Следующим сообщением отпарвь то, что хочешь отправить всем пользователям БОТа\.\n' +
-                                            '_· к сообщению может быть прикреплена ссылка, 1 картинка, 1 документ_\n' +
-                                            '_· можно использовать форматирование_\n' +
-                                            '_· опросы и виктарины не поддерживаются_\n', parse_mode='MarkdownV2')
+            text = ('*Следующим сообщением отпарвь то, что хочешь отправить всем пользователям БОТа*\n' +
+                    '* к сообщению может быть прикреплена ссылка, 1 картинка, 1 документ\n' +
+                    '* можно использовать форматирование\n' +
+                    '* опросы и виктарины *не* поддерживаются\n')
+            text = telegramify_markdown.markdownify(text)      # чистим markdown
+            await bot.send_message(chat_id, text, parse_mode='MarkdownV2')
             chat.spam_flag(chat_id, 1)    #присваиваем флагу ожидания сообщения со спам рассылкой статус 1 для этого пользователя
         else:
             await bot.send_message(chat_id, "Неверный пароль.")
@@ -208,9 +237,8 @@ async def spam_processing(chat_id, message_id, message_text): #--обработ�
     try:
         if (message_text == "ДA"):
             await bot.send_message(chat_id, "Идёт рассылка...\nничего не отправляйте в чат", reply_markup=types.ReplyKeyboardRemove())
-            actual_users = get_actual_ids() #получаем список актуальных пользователей
-            luck_sends = await sent_spam(actual_users, chat_id, message_id-2) #рассылаем, копируя пред-предыдущее сообщение
-            await bot.send_message(chat_id, f"Отправлено {luck_sends} пользователям.\n")
+            actual_users = chat.get_actual_ids() #получаем список актуальных пользователей
+            await sent_spam(actual_users, chat_id, message_id-2) #рассылаем, копируя пред-предыдущее сообщение
             temp_spam_text = None   # удаляем временный текст рассылки
             chat.spam_flag(chat_id, 0)   #опускание флага
             
@@ -231,7 +259,7 @@ async def spam_processing(chat_id, message_id, message_text): #--обработ�
             markup_2 = types.KeyboardButton("ОТMЕHА")
             keyboard.row(markup_1, markup_2)   
             await bot.send_message(chat_id, "⬆ Так будет выглядеть рассылка в чатах пользователей.\n" +
-                                            "Начать рассылку?", reply_markup=keyboard)       # Отправляем сообщение с клавиатурой
+                                            "Начать рассылку? ", reply_markup=keyboard)       # Отправляем сообщение с клавиатурой
     except Exception as e:
         logger.error(f"Ошибка обработки СПАМ рассылки - {e}")
 
@@ -239,62 +267,41 @@ async def spam_processing(chat_id, message_id, message_text): #--обработ�
 async def sent_spam(users, chat_id, message_id):#---рассылка спама (users кому слать (массив), chat_id из какого чата, message_id ид сообщения)---+
     try:
         luck_sends = 0 #счётчик удачных отпрвлений
+        interval = 1 / mainconf.requests_per_second
+        next_request_time = asyncio.get_event_loop().time()
+        i = 0 
         
-        for item in users:
-            try:
-                await bot.copy_message(     # рассылаем 
-                    chat_id=item,  # Кому отправляем
-                    from_chat_id=chat_id,  # Откуда берем сообщение
-                    message_id=message_id  # ID сообщения для копирования
-                )
-                if temp_spam_text is not None:
-                    chat.save_message_to_json(chat_id=item, role="assistant", message=temp_spam_text)      #и записываем рекламный текст от БОТА в историю сообщений каждого участника
-                luck_sends += 1
-            except:
-                arch_chat(item)  #если не удалось отправить, значит пользователь удалил и остановил бота, отправляем его в архив
-
-        return luck_sends
+        while i < len(users):           # цикл по всем пользователям
+            current_time = asyncio.get_event_loop().time()
+            if current_time >= next_request_time:
+                try:
+                    await bot.copy_message(     # ---рассылаем ---
+                        chat_id=users[i],  # Кому отправляем
+                        from_chat_id=chat_id,  # Откуда берем сообщение
+                        message_id=message_id  # ID сообщения для копирования
+                    )
+                    if temp_spam_text is not None:
+                        chat.save_message_to_json(chat_id=users[i], role="assistant", message=temp_spam_text)      #и записываем рекламный текст от БОТА в историю сообщений каждого участника
+                    luck_sends += 1
+                except Exception as e: # в архив, если ошибка отправки от сервера тг = 400
+                    if(e.error_code == 400):
+                        try:
+                            chat.arch_chat(users[i])  #если не удалось отправить, значит пользователь удалил и остановил бота, отправляем его в архив
+                        except Exception as e:
+                            logger.error(f"Ошибка добавления чата {users[i]} в архив - {e}")
+                
+                i += 1  # Переход к следующему получателю
+                next_request_time += interval
+            else:                                              # игнорим отправку, если слишком быстро отправляем
+                await asyncio.sleep(next_request_time - current_time)
+            
+        await bot.send_message(chat_id, f"Отправлено {luck_sends} пользователям.\n")
+        
     except Exception as e:
         logger.error(f"Ошибка рассылки спама - {e}")
+        await bot.send_message(chat_id, f"Ошибка рассылки - {e}. Сообщите разработчику.")
 
 
-def get_actual_ids(): #---Получение списка пользователей в виде массива-----------------------+
-    try:
-        json_filenames = []
-
-        for filename in os.listdir(msg_hist_dir):    # Перебираем все файлы в папке
-            if filename.endswith('.json'):        # Проверяем, имеет ли файл расширение .json
-                json_filenames.append(os.path.splitext(filename)[0])            # Добавляем имя файла без расширения в массив
-
-        return json_filenames
-    except Exception as e:
-        logger.error(f"Ошибка получения списка пользователей - {e}")
-
-
-def arch_chat(chat_id):#---Архивирование чата chat_id-------------------------------------------------------
-    
-    try:
-        source_path = msg_hist_dir / f'{chat_id}.json'
-        
-        if not os.path.exists(source_path):    # Проверяем, существует ли исходный чат
-            print(f"Файл {source_path} не найден.")
-            return
-
-        if not os.path.exists(msg_arch_dir):    # Проверяем, существует ли папка назначения, и создаем её, если нужно
-            os.makedirs(msg_arch_dir)
-
-        filename = os.path.basename(source_path)    # Получаем имя файла и расширение
-        name, ext = os.path.splitext(filename)
-
-        timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")    # Генерируем текущую дату и время в формате YYYY-MM-DD_HH-MM-SS
-
-        new_filename = f"{timestamp}_{name}{ext}"    # Создаем новое имя файла
-        destination_path = os.path.join(msg_arch_dir, new_filename)
-
-        shutil.move(source_path, destination_path)    # Перемещаем файл
-        
-    except Exception as e:
-        logger.error(f"Ошибка архивирования чата {chat_id} - {e}")
 
 #----------------------------------------------------------------------------------------------------------
 
@@ -335,13 +342,14 @@ async def handle_message(message):
             if message_text == "/start":
                 await bot.send_message(chat_id, mainconf.start_message)
                 
-            elif message_text == "/service":
-                await bot.send_message(chat_id, '`\/q `\- задать вопрос Chat\-GPT вне формата бота\n' +
-                                                '`\/spam `\- рассылка всем пользователям бота\n\n' +
-                                                '`\/dw\_data `\- скачать папку с данными\n' +
-                                                '`\/remove\_limit `\- обнулить лимит на сегодня\n' +
-                                                '`\/new\_service\_pass `\- замена сервисного пароля\n' +
-                                                '', parse_mode='MarkdownV2')
+            elif message_text == "/service" or message_text == "/admin":
+                text = ('`/q` - задать вопрос Chat-GPT вне формата бота\n' +
+                        '`/spam пароль` - рассылка всем пользователям бота\n\n' +
+                        '`/dw_data пароль` - скачать папку с данными\n' +
+                        '`/remove_limit пароль` - обнулить лимит на сегодня\n' +
+                        '`/new_service_pass старый_пароль новый_пароль` - замена сервисного пароля\n')
+                text = telegramify_markdown.markdownify(text)      # чистим markdown
+                await bot.send_message(chat_id, text, parse_mode='MarkdownV2')
                 
             elif message_text.startswith('/remove_limit'): 
                 await remove_limit(chat_id, message_text)
@@ -357,6 +365,10 @@ async def handle_message(message):
                 
             elif message_text.startswith('/new_service_pass'):
                 await handle_new_service_pass(chat_id, message_text)
+                
+            elif message_text.startswith('/stat'):
+                await get_stat(chat_id, message_text)
+
             
         else:                            #обработка обычного текста (не команд)
             if chat.spam_flag(chat_id):         #если у пользователя поднят флаг ожидания спам сообщения                
@@ -399,5 +411,6 @@ if __name__ == "__main__":
 #  вопрос чату без его роли  ok  
 #  биллинг токенов для каждого и суммарный
 # статистика (кол-во пользователей, кол-во сообщений всего , кол-во сообщений сегодня...)  хз надо ли
+# отправлять в архив после 2 неудачных попыток отправки
 #  ???
 # Профит

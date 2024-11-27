@@ -2,10 +2,12 @@ import json
 import os
 from datetime import datetime
 from pathlib import Path
+import shutil
 from config import chatconf
-
+         
 script_dir = Path(__file__).parent  # Определяем путь к текущему скрипту
 msg_hist_dir = script_dir / 'data/msg_hits'   #папка с историями сообщений
+msg_arch_dir = msg_hist_dir / 'archive'    #папка с историями удалившихся пользователей
 
 
 
@@ -120,8 +122,71 @@ def spam_flag(chat_id, variable=None): # флаг спам-рассылки (е�
         else:
             state = data["Spam Flag"]
             return state
+
+
+
+def arch_chat(chat_id):#---Архивирование чата chat_id-------------------------------------------------------
+    
+    source_path = msg_hist_dir / f'{chat_id}.json'
+    
+    if not os.path.exists(source_path):    # Проверяем, существует ли исходный чат
+        return
+
+    if not os.path.exists(msg_arch_dir):    # Проверяем, существует ли папка назначения, и создаем её, если нужно
+        os.makedirs(msg_arch_dir)
+
+    filename = os.path.basename(source_path)    # Получаем имя файла и расширение
+    name, ext = os.path.splitext(filename)
+
+    timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")    # Генерируем текущую дату и время в формате YYYY-MM-DD_HH-MM-SS
+
+    new_filename = f"{name}_{timestamp}{ext}"    # Создаем новое имя файла
+    destination_path = os.path.join(msg_arch_dir, new_filename)
+
+    shutil.move(source_path, destination_path)    # Перемещаем файл
+
+
+
+def get_actual_ids(): #---Получение списка пользователей в виде массива-----------------------+
+    json_filenames = []
+
+    for filename in os.listdir(msg_hist_dir):    # Перебираем все файлы в папке
+        if filename.endswith('.json'):        # Проверяем, имеет ли файл расширение .json
+            json_filenames.append(os.path.splitext(filename)[0])            # Добавляем имя файла без расширения в массив
+
+    return json_filenames
+        
+
+def get_active_users():#---получить кол-во активных пользователей----------------------------+
+    try:
+        # Получаем список файлов и папок в указанной директории
+        files = os.listdir(msg_hist_dir)
+        # Фильтруем только файлы с расширением .json
+        json_files = [file for file in files if file.endswith('.json') and os.path.isfile(os.path.join(msg_hist_dir, file))]
+        return len(json_files)
+    except FileNotFoundError:
+        return 'error'
+    except PermissionError:
+        return 'err'
     
     
+def get_departed_users():#---получить количество ушедших пользователей-----------------------+
+    try:
+        # Получаем список файлов и папок в указанной директории
+        files = os.listdir(msg_arch_dir)
+        # Фильтруем только файлы с расширением .json
+        json_files = [file for file in files if file.endswith('.json') and os.path.isfile(os.path.join(msg_arch_dir, file))]
+        return len(json_files)
+    except FileNotFoundError:
+        return 'error'
+    except PermissionError:
+        return 'err'
+
+
+
+
+
+
 
 # chat_id = 678035955
 # spam_flag(chat_id, 1)
