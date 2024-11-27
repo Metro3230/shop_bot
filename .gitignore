@@ -1,5 +1,4 @@
 data/.env
 data/msg_hits/*.json
 data/msg_hits/archive
-tests
 test2.py

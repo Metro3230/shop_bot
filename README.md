@@ -5,7 +5,7 @@ this is experiments tg AI chat bot )
     -2. С рабочего бота стягиваешь папку data - /dw_data ...
     -3. ...если нужно, все проверяешь все настройки в а) .env b) config.py
     -4. docker build . -t shop_bot:vXX
-    -5. После сборки запускать коммандой docker run --name shop_bot --restart unless-stopped -d shop_bot:vXX
+    -5. После сборки запускать коммандой docker run --name shop_bot_vXX --restart unless-stopped -d shop_bot:vXX
 
 
      
