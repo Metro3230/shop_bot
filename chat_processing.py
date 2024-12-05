@@ -3,12 +3,17 @@ import os
 from datetime import datetime
 from pathlib import Path
 import shutil
-from config import chatconf
-         
+# from config import chatconf
+import configparser
+
 script_dir = Path(__file__).parent  # Определяем путь к текущему скрипту
+data_dir = script_dir / 'data'
 msg_hist_dir = script_dir / 'data/msg_hits'   #папка с историями сообщений
 msg_arch_dir = msg_hist_dir / 'archive'    #папка с историями удалившихся пользователей
+config_file = data_dir / 'config.ini'
 
+config = configparser.ConfigParser()  # настраиваем и читаем файл конфига
+config.read(config_file)
 
 
 def save_message_to_json(chat_id, role, message, sender_name=None): #добавление сообщения
@@ -72,7 +77,7 @@ def get_msg_count(chat_id): #получтиь количетсво сообще�
 
 def get_last_messages(chat_id): #извлечение последних count сообщений из chat_id
     
-    count = chatconf.latest_posts    #сколько сообщений из чата вытаскивать
+    count = int(config['chatconf']['latest_posts'])    #сколько сообщений из чата вытаскивать 
     
     file_name = f"{msg_hist_dir}/{chat_id}.json"    # Формируем имя файла
         
