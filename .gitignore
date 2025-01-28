@@ -2,3 +2,4 @@ data/.env
 data/msg_hits/*.json
 data/msg_hits/archive
 data/config.ini
+data/admins.txt
