@@ -6,7 +6,6 @@ import os
 from telebot.async_telebot import AsyncTeleBot
 from telebot import types
 import telegramify_markdown #библитека преобразования markdown в телеграммный markdown_n2
-from datetime import datetime
 import logging
 import asyncio
 import shutil
@@ -64,55 +63,41 @@ def user_admin(chat_id):
     return False
 
 
-
-async def remove_limit(chat_id): #---обнуление лимитов-----------------------------------------+
-    try:
-        if user_admin(chat_id):
-            chat.remove_limit(chat_id)   #вызываем чистку лимита для чата
-            await bot.send_message(chat_id, "Дневной лимит для тебя сброшен")
-        else:
-            text = telegramify_markdown.markdownify(config['mainconf']['noadmin_text']) #если не залогинен
-            await bot.send_message(chat_id, text, parse_mode='MarkdownV2')  
-
-    except Exception as e:
-        await bot.send_message(chat_id, f"Произошла ошибка: {e}, свяжитесь с {config['mainconf']['admin_link']}")
-        logger.error(f"Ошибка обнуления лимитов - {e}")
     
     
-    
-async def simple_question(chat_id, message): #---вопрос к ИИ без роли---------------------------------+
-    try:
-        if user_admin(chat_id):
-            command_parts = message.split(maxsplit=2)         # Разделяем текст команды на части
+# async def simple_question(chat_id, message): #---вопрос к ИИ без роли---------------------------------+
+#     try:
+#         if user_admin(chat_id): #если админ
+#             command_parts = message.split(maxsplit=2)         # Разделяем текст команды на части
 
-            if len(command_parts) < 2:         # Проверяем, что есть и пароль, и новый токен
-                await bot.send_message(chat_id, "Формат команды: \"/q вопрос\"\n" +
-                                        "Обрати внимание, что это обычный запрос к модели CHAT-GPT4o без каких либо " +
-                                        "предписаний поведения и знания контекста ранней переписки и предыдущих вопросов. " +
-                                        "Формулируй вопрос развёрнуто, описывая контекст и поведение ассистента, если это требуется. ")
-                return
+#             if len(command_parts) < 2:         # Проверяем, что есть и пароль, и новый токен
+#                 await bot.send_message(chat_id, "Формат команды: \"/q вопрос\"\n" +
+#                                         "Обрати внимание, что это обычный запрос к модели CHAT-GPT4o без каких либо " +
+#                                         "предписаний поведения и знания контекста ранней переписки и предыдущих вопросов. " +
+#                                         "Формулируй вопрос развёрнуто, описывая контекст и поведение ассистента, если это требуется. ")
+#                 return
             
-            text = command_parts[1]
+#             text = command_parts[1]
             
-            response = await openAI.req_to_ai_norole(text)   #задаем вопрос ИИ
-            response_text = response.choices[0].message.content         #парсим текст ответа
-            response_text = telegramify_markdown.markdownify(response_text)      # чистим markdown
-            await bot.send_message(chat_id, response_text, parse_mode='MarkdownV2')
-            await bot.send_message(chat_id, 'обрати внимание, в вопросах через /q ИИ не знает контекст переписки, и каждый вопрос для него как новый')   
+#             response = await openAI.req_to_ai_norole(text)   #задаем вопрос ИИ
+#             response_text = response.choices[0].message.content         #парсим текст ответа
+#             response_text = telegramify_markdown.markdownify(response_text)      # чистим markdown
+#             await bot.send_message(chat_id, response_text, parse_mode='MarkdownV2')
+#             await bot.send_message(chat_id, 'обрати внимание, в вопросах через /q ИИ не знает контекст переписки, и каждый вопрос для него как новый')   
 
-        else:
-            text = telegramify_markdown.markdownify(config['mainconf']['noadmin_text']) #если не залогинен
-            await bot.send_message(chat_id, text, parse_mode='MarkdownV2')  
+#         else:
+#             text = telegramify_markdown.markdownify(config['mainconf']['noadmin_text']) #если не залогинен
+#             await bot.send_message(chat_id, text, parse_mode='MarkdownV2')  
 
-    except Exception as e:
-        await bot.send_message(chat_id, f"Произошла ошибка: {e}, свяжитесь с {config['mainconf']['admin_link']}")
-        logger.error(f"Ошибка вопроса ИИ без роли - {e}")
+#     except Exception as e:
+#         await bot.send_message(chat_id, f"Произошла ошибка: {e}, свяжитесь с {config['mainconf']['admin_link']}")
+#         logger.error(f"Ошибка вопроса ИИ без роли - {e}")
 
 
 
 async def handle_dw_data(chat_id): #---скачивание данных-------------------------------------+
     try:
-        if user_admin(chat_id):
+        if user_admin(chat_id): #если админ
             shutil.make_archive(str(data_zip).replace('.zip', ''), 'zip', data_dir)
             with open(data_zip, 'rb') as file:
                 await bot.send_document(chat_id, file)
@@ -130,7 +115,7 @@ async def handle_dw_data(chat_id): #---скачивание данных--------
 
 async def handle_dw_config(chat_id,): #---скачивание конфига-------------------------------------+
     try:
-        if user_admin(chat_id):
+        if user_admin(chat_id): #если админ
             with open(config_file, 'rb') as file:
                 await bot.send_document(chat_id, file)
             text = 'Аккуратно отредактируй файл и закинь обратно в этот чат, не меняя названия'
@@ -147,9 +132,25 @@ async def handle_dw_config(chat_id,): #---скачивание конфига---
         
         
 
+async def handle_dw_logs(chat_id,): #---скачивание логов-------------------------------------+
+    try:
+        if user_admin(chat_id): #если админ
+            with open(log_file, 'rb') as file:
+                await bot.send_document(chat_id, file)
+            logger.info('лог скачен пользователем ' + str(chat_id))
+        else:
+            text = telegramify_markdown.markdownify(config['mainconf']['noadmin_text']) #если не залогинен
+            await bot.send_message(chat_id, text, parse_mode='MarkdownV2')  
+            
+    except Exception as e:
+        await bot.send_message(chat_id, f"Произошла ошибка: {e}, свяжитесь с {config['mainconf']['admin_link']}")
+        logger.error(f"Ошибка скачивания логов - {e}")
+        
+        
+
 async def handle_set_config(chat_id, file_id): #---обновление конфига-------------------------------------+
     try:
-        if user_admin(chat_id):
+        if user_admin(chat_id): #если админ
             file_path = (await bot.get_file(file_id)).file_path
             downloaded_file = await bot.download_file(file_path)
             with open(config_file, 'wb') as new_file:            # Сохраняем файл на сервере, заменяя старый
@@ -170,7 +171,7 @@ async def handle_set_config(chat_id, file_id): #---обновление конф
         
 async def handle_new_admin_pass(chat_id, message): #----------обновление  пароля--------------+
     try:
-        if user_admin(chat_id):
+        if user_admin(chat_id): #если админ
             old_admin_pass = os.getenv('ADMIN_PASS')       # пишем в лог старый файл на всякий
             logger.info(f'попытка смены пароля: {old_admin_pass} на новый...')
 
@@ -202,11 +203,12 @@ async def handle_new_admin_pass(chat_id, message): #----------обновлени
 
 async def get_stat(chat_id): #---вывод статистики-------------------------------------+
     try:
-        if user_admin(chat_id):
+        if user_admin(chat_id): #если админ
             active_users = chat.get_active_users()
             departed_users = chat.get_departed_users()
             text = (f'Активных пользователей: {active_users}\n'+
-                    f'Удаливших чат с ботом: {departed_users}')
+                    f'Удаливших чат с ботом: {departed_users}\n' +
+                    f'(бновляется с каждой рассылкой)')
             text = telegramify_markdown.markdownify(text)      # чистим markdown
             await bot.send_message(chat_id, text, parse_mode='MarkdownV2')                  # Отправка 
         else:
@@ -219,7 +221,7 @@ async def get_stat(chat_id): #---вывод статистики----------------
 
 
 
-async def login(chat_id, message): #---логин в админы-------------------------------------+
+async def login(chat_id, message, msg_id): #---логин в админы-------------------------------------+
     try:
         command_parts = message.split(maxsplit=2)         # Разделяем текст команды на части
 
@@ -235,11 +237,13 @@ async def login(chat_id, message): #---логин в админы---------------
                 lines = file.readlines()
                 if str(chat_id) + '\n' not in lines:  # Проверяем, есть ли уже такая строка в файле
                     file.write(str(chat_id) + '\n')  # Если строки нет, добавляем её в конец
+                    await bot.delete_message(chat_id, msg_id) #удаляем пароль из чата
                     text = telegramify_markdown.markdownify("Вы стали администратором. /admin - администрирование бота.") #если не залогинен
                     await bot.send_message(str(chat_id), text, parse_mode='MarkdownV2')
                     logging.info(str(chat_id) + ' подписался')
                 else:
-                    await bot.send_message(chat_id, "Вы уже подписаны")                    
+                    await bot.delete_message(chat_id, msg_id) #удаляем пароль из чата
+                    await bot.send_message(chat_id, "Вы уже администратор.")                    
         else:
             await bot.send_message(chat_id, "Неверный пароль.")
 
@@ -249,15 +253,15 @@ async def login(chat_id, message): #---логин в админы---------------
         
         
 
-async def unlogin(chat_id): #---разлогин из админов-------------------------------------+
+async def unlogin(chat_id): #---разлогин из админов-(возвращает результат текстом)-----------------+
     try:        
-        if user_admin(chat_id):
+        if user_admin(chat_id): #если админ
             with open(admins_file, 'r') as file:    # Читаем содержимое файла
                 lines = file.readlines()
             with open(admins_file, 'w') as file:    # Отфильтровываем строки, которые не совпадают с ids
                 for line in lines:
                     if line.strip() != str(chat_id):
-                        file.write(line)                    
+                        file.write(line)       
             await bot.send_message(chat_id, "Вы разлогинились.")
         else:
             text = telegramify_markdown.markdownify("Вы не админ.") #если не залогинен
@@ -302,20 +306,20 @@ def update_env_variable(key, value): #---функция обновления п�
         
 async def new_spam(chat_id): #---создание СПАМ рассылки ------------------------------------+
     try:    
-        if user_admin(chat_id):
+        if user_admin(chat_id): #если админ
             text = ('*Следующим сообщением отпарвь то, что хочешь отправить всем пользователям БОТа*\n' +
                     '* к сообщению может быть прикреплена ссылка, 1 картинка, 1 документ\n' +
                     '* можно использовать форматирование\n' +
                     '* опросы и викторины *не* поддерживаются\n')
             text = telegramify_markdown.markdownify(text)      # чистим markdown
             await bot.send_message(chat_id, text, parse_mode='MarkdownV2')
-            chat.spam_flag(chat_id, 1)    #присваиваем флагу ожидания сообщения со спам рассылкой статус 1 для этого пользователя
+            chat.flag(chat_id, "Spam Flag", 1)    #присваиваем флагу ожидания сообщения со спам рассылкой статус 1 для этого пользователя
         else:
             text = telegramify_markdown.markdownify(config['mainconf']['noadmin_text']) #если не залогинен
             await bot.send_message(chat_id, text, parse_mode='MarkdownV2')       
 
     except Exception as e:
-        chat.spam_flag(chat_id, 0)   #опускание флага
+        chat.flag(chat_id, "Spam Flag", 0)   #опускание флага
         await bot.send_message(chat_id, f"Произошла ошибка: {e}, свяжитесь с {config['mainconf']['admin_link']}")
         logger.error(f"Ошибка создания СПАМ рассылки - {e}")
 
@@ -328,12 +332,12 @@ async def spam_processing(chat_id, message_id, message_text): #--обработ�
             actual_users = chat.get_actual_ids() #получаем список актуальных пользователей
             await sent_spam(actual_users, chat_id, message_id-2) #рассылаем, копируя пред-предыдущее сообщение
             temp_spam_text = None   # удаляем временный текст рассылки
-            chat.spam_flag(chat_id, 0)   #опускание флага
+            chat.flag(chat_id, "Spam Flag", 0)   #опускание флага
             
         elif (message_text == "Oтменa"):   
             await bot.send_message(chat_id,"Рассылка отменена",reply_markup=types.ReplyKeyboardRemove())
             temp_spam_text = None   # удаляем временный текст рассылки
-            chat.spam_flag(chat_id, 0)   #опускание флага
+            chat.flag(chat_id, "Spam Flag", 0)   #опускание флага
 
         else:
             await bot.copy_message(   #отправка сообщения на проверку самому себе
@@ -349,7 +353,7 @@ async def spam_processing(chat_id, message_id, message_text): #--обработ�
             await bot.send_message(chat_id, "⬆ Так будет выглядеть рассылка в чатах пользователей.\n" +
                                             "Если что-то не так, пришли новое сообщение. Если всё хорошо или передумал, воспользуйся кнопками ⬇", reply_markup=keyboard)       # Отправляем сообщение с клавиатурой
     except Exception as e:
-        chat.spam_flag(chat_id, 0)   #опускание флага
+        chat.flag(chat_id, "Spam Flag", 0)   #опускание флага
         await bot.send_message(chat_id, f"Произошла ошибка: {e}, свяжитесь с {config['mainconf']['admin_link']}")
         logger.error(f"Ошибка обработки СПАМ рассылки - {e}")
 
@@ -388,7 +392,7 @@ async def sent_spam(users, chat_id, message_id):#---рассылка спама 
         await bot.send_message(chat_id, f"Отправлено {luck_sends} пользователям.\n")
         
     except Exception as e:
-        chat.spam_flag(chat_id, 0)   #опускание флага
+        chat.flag(chat_id, "Spam Flag", 0)   #опускание флага
         await bot.send_message(chat_id, f"Произошла ошибка: {e}, свяжитесь с {config['mainconf']['admin_link']}")
         await bot.send_message(chat_id, f"Ошибка рассылки - {e}. Сообщите разработчику.")
 
@@ -416,6 +420,31 @@ async def question_for_ai(chat_id, sendername, username, message_text):
 #----------------------------------------------------------------------------------------------------------
 
 
+#---------------------------------------------обратботка вопроса ИИ без роли------------------------------
+
+async def question_for_ai_norole(chat_id, message_text):
+    try:
+        if user_admin(chat_id): #если админ
+            
+            response = await openAI.req_to_ai_norole(message_text)   #задаем вопрос ИИ
+            response_text = response.choices[0].message.content         #парсим текст ответа
+            response_text = telegramify_markdown.markdownify(response_text)      # чистим markdown
+            await bot.send_message(chat_id, response_text, parse_mode='MarkdownV2')
+            await bot.send_message(chat_id, 'Обрати внимание, в таких вопросах ИИ не знает контекст переписки, и каждый вопрос для него как новый. Что бы задать ещё один вопрос к ИИ напрямую, снова используй кнопку "задать вопрос вне формата бота"')   
+            
+            chat.flag(chat_id, "NoRole Q Flag", 0) # опускаем флаг
+
+        else:
+            text = telegramify_markdown.markdownify(config['mainconf']['noadmin_text']) #если не залогинен
+            await bot.send_message(chat_id, text, parse_mode='MarkdownV2')     
+            
+    except Exception as e:
+        await bot.send_message(chat_id, f"Произошла ошибка: {e}, свяжитесь с {config['mainconf']['admin_link']}")
+        logger.error(f"Ошибка стандартной обработки стандартного вопроса - {e}")
+
+#----------------------------------------------------------------------------------------------------------
+
+
 # -----------------------------------Основной обработчик всех сообщений------------------------------------
 
 @bot.message_handler(content_types=['text', 'photo', 'document', 'video', 'voice', 'audio', 'contact', 'location', 'sticker', 'animation'])
@@ -434,7 +463,6 @@ async def handle_message(message):
         last_name = "" if last_name is None else last_name        
         sendername = first_name + " " + last_name
         # caption=message.caption
-        # spam_flag = chat.spam_flag(chat_id)
         
 
         if (message_text):    
@@ -450,45 +478,36 @@ async def handle_message(message):
                     keyboard.row(markup_3)
                     keyboard.row(markup_4)
                     keyboard.row(markup_5)
-                    await bot.send_message(chat_id, config['mainconf']['start_message'], reply_markup=keyboard)       # Отправляем сообщение с клавиатурой
-                    
-                elif message_text == "/service":
-                    if user_admin(chat_id):
-                        text = ('/admin - администрирование\n' +
-                                '/dw_data - скачать папку с данными\n')
+                    await bot.send_message(chat_id, config['mainconf']['start_message'], reply_markup=keyboard)       # Отправляем сообщение с клавиатурой 
+                        
+                elif message_text == "/dev":
+                    if user_admin(chat_id): #если админ
+                        text = ('-----------------для разработчиков-------------------\n' +
+                                '/dw_data - скачать папку с данными\n' +
+                                '/logs - посмотреть логи\n')          
                         text = telegramify_markdown.markdownify(text)      # чистим markdown
                         await bot.send_message(chat_id, text, parse_mode='MarkdownV2')   
-                    else:
-                        text = telegramify_markdown.markdownify(config['mainconf']['noadmin_text']) #если не залогинен
-                        await bot.send_message(chat_id, text, parse_mode='MarkdownV2')  
-                        
-                elif message_text == "/admin":
-                    if user_admin(chat_id):
-                        text = ('/q - задать вопрос Chat-GPT вне формата бота\n' +
-                                '/spam - рассылка всем пользователям бота\n' +
-                                '/stat - статистика\n\n' +
-                                '/remove_limit - обнулить Ваш личный лимит на сегодня\n' +
-                                '/dw_config - скачать текущий файл настроек\n' +
-                                '`/new_admin_pass старый_пароль новый_пароль` - замена пароля\n' +
-                                '/unlogin - разлогинится (перестать быть администратором)\n')
-                        text = telegramify_markdown.markdownify(text)      # чистим markdown
-                        await bot.send_message(chat_id, text, parse_mode='MarkdownV2')
                     else: 
                         text = telegramify_markdown.markdownify(config['mainconf']['noadmin_text']) #если не залогинен
                         await bot.send_message(chat_id, text, parse_mode='MarkdownV2')   
-                         
-                                                                                            
+                        
+                elif message_text == "/admin":
+                    if user_admin(chat_id): #если админ
+                        markup = types.InlineKeyboardMarkup()
+                        but_spam = types.InlineKeyboardButton("создать рассылку", callback_data='call_btn_spam')  # Добавляем кнопки
+                        but_norole_q = types.InlineKeyboardButton("задать вопрос ИИ вне формата бота", callback_data='call_btn_norole_q')
+                        but_stat = types.InlineKeyboardButton("статистика", callback_data='call_btn_stat')    
+                        but_service = types.InlineKeyboardButton("сервис", callback_data='call_btn_service')    
+                        markup.row(but_spam)
+                        markup.row(but_norole_q)
+                        markup.row(but_stat, but_service)
+                        await bot.send_message(chat_id, "Администрирование бота:", reply_markup=markup)       # Отправляем сообщение с клавиатурой
+                    else: 
+                        text = telegramify_markdown.markdownify(config['mainconf']['noadmin_text']) #если не залогинен
+                        await bot.send_message(chat_id, text, parse_mode='MarkdownV2')   
+                                                                                                                  
                 elif message_text == "/dw_data":
                     await handle_dw_data(chat_id)
-                        
-                elif message_text.startswith('/q'):
-                    await simple_question(chat_id, message_text)
-                    
-                elif message_text == "/spam":
-                    await new_spam(chat_id)    
-                    
-                elif message_text == "/stat":
-                    await get_stat(chat_id)        
                     
                 elif message_text == "/remove_limit": 
                     await remove_limit(chat_id)
@@ -500,16 +519,22 @@ async def handle_message(message):
                     await handle_new_admin_pass(chat_id, message_text)
                         
                 elif message_text.startswith('/login'):
-                    await login(chat_id, message_text) 
+                    await login(chat_id, message_text, message_id) 
                     
                 elif message_text == "/unlogin":
                     await unlogin(chat_id) 
+                    
+                elif message_text == "/logs":
+                    await handle_dw_logs(chat_id) 
                  
 
             else:                            #обработка обычного текста (не команд)
                 
-                if chat.spam_flag(chat_id):         #если у пользователя поднят флаг ожидания спам сообщения                
-                    await spam_processing(chat_id, message_id, message_text)                
+                if chat.flag(chat_id, "Spam Flag"):         #если у пользователя поднят флаг ожидания спам сообщения                
+                    await spam_processing(chat_id, message_id, message_text)  
+                    
+                elif chat.flag(chat_id, "NoRole Q Flag"):         #если у пользователя поднят флаг ожидания вопроса ИИ без роли
+                    await question_for_ai_norole(chat_id, message_text)       
                     
                 elif chat.get_msg_count(chat_id) > int(config['mainconf']['msgs_limit']): #если лимит пользователя на сегодня исчерпан
                     keyboard = types.InlineKeyboardMarkup()
@@ -529,6 +554,56 @@ async def handle_message(message):
         await bot.send_message(chat_id, f"Произошла ошибка: {e}, свяжитесь с {config['mainconf']['admin_link']}")
         logger.error(f"Ошибка обработчика любых сообщений - {e}")
 
+
+
+# Обработчик нажатий на кнопки
+@bot.callback_query_handler(func=lambda call: True)
+async def callback_query(call):
+    try:
+        chat_id = call.message.chat.id
+        
+        if user_admin(chat_id): #если админ
+            if call.data == 'call_btn_spam':
+                await new_spam(chat_id)
+                await bot.answer_callback_query(call.id)
+                
+            if call.data == 'call_btn_stat':
+                await get_stat(chat_id)
+                await bot.answer_callback_query(call.id)
+                    
+            elif call.data == 'call_btn_norole_q':
+                text = telegramify_markdown.markdownify("Следующим сообщением задай вопрос ИИ.\n" +
+                                        "Обрати внимание, что это обычный запрос к модели CHAT-GPT4o без каких либо " +
+                                        "предписаний поведения и знания контекста ранней переписки и предыдущих вопросов. " +
+                                        "Формулируй вопрос развёрнуто, описывая контекст и поведение ассистента, если это требуется. \n" +
+                                        "Например _Составь рекламное сообщение..._ или _Посоветуй как написать..._") #если не залогинен
+                await bot.send_message(chat_id, text, parse_mode='MarkdownV2')  
+                chat.flag(chat_id, "NoRole Q Flag", 1) # поднимаем флаг
+                await bot.answer_callback_query(call.id)
+                    
+            elif call.data == 'call_btn_service':
+                text = ('`/new_admin_pass старый_пароль новый_пароль` - замена пароля\n' + 
+                        '/dw_config - скачать текущий файл настроек\n' +
+                        '/unlogin - разлогиниться (перестать быть администратором)\n')            #в будущем убрать (?)
+                text = telegramify_markdown.markdownify(text)      # чистим markdown
+                await bot.send_message(chat_id, text, parse_mode='MarkdownV2')   
+                await bot.answer_callback_query(call.id)
+                    
+            else:
+                raise ValueError(f"Кнопка {call.data} не найдена.") #принудительная ошибка
+            
+
+        else: 
+            text = telegramify_markdown.markdownify(config['mainconf']['noadmin_text']) #если не залогинен
+            await bot.send_message(chat_id, text, parse_mode='MarkdownV2')   
+            await bot.answer_callback_query(call.id, "Вы не администратор")    
+    
+    except Exception as e:
+        await bot.answer_callback_query(call.id, "Что то пошло не так.")
+        logger.error(f"Ошибка обработки нажатия на inline кнопки - {e}")
+        
+        
+        
 #-------------------------------------------------------------------------------------------------------------
 
 
