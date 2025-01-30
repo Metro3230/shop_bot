@@ -378,10 +378,9 @@ async def question_for_ai(chat_id, sendername, username, message_text):
         last_messages = chat.get_last_messages(chat_id)
         response = await openAI.req_to_ai(last_messages)   #отправляем историю чата (чат ид) боту
         response_text = response.choices[0].message.content         #парсим текст ответа
-        # response_text = openAI.req_to_ai_TEST(chat.get_last_messages(chat_id))   #ТЕСТОВЫЙ ОТВЕТ БЕЗ ТРАТЫ ТОКЕНОВ
-        response_text = telegramify_markdown.markdownify(response_text)      # чистим markdown
-        chat.save_message_to_json(chat_id=chat_id, role="assistant", message=response_text)      #записываем текст сообщения от БОТА в историю сообщений
-        await bot.send_message(chat_id, response_text, parse_mode='MarkdownV2', reply_markup=types.ReplyKeyboardRemove())     #отправляем ответ
+        # response_text = openAI.req_to_ai_TEST(chat.get_last_messages(chat_id))   #ТЕСТОВЫЙ ОТВЕТ БЕЗ ТРАТЫ ТОКЕНОВ        
+        chat.save_message_to_json(chat_id=chat_id, role="assistant", message=response_text)      #записываем текст сообщения от БОТА в историю сообщений        
+        await send_msg(chat_id, response_text)
     except Exception as e:
         await bot.send_message(chat_id, f"Произошла ошибка: {e}, свяжитесь с {config['mainconf']['admin_link']}")
         logger.error(f"Ошибка стандартной обработки стандартного вопроса - {e}")
@@ -397,8 +396,7 @@ async def question_for_ai_norole(chat_id, message_text):
             
             response = await openAI.req_to_ai_norole(message_text)   #задаем вопрос ИИ
             response_text = response.choices[0].message.content         #парсим текст ответа
-            response_text = telegramify_markdown.markdownify(response_text)      # чистим markdown
-            await bot.send_message(chat_id, response_text, parse_mode='MarkdownV2')
+            await send_msg(chat_id, response_text)
             await bot.send_message(chat_id, 'Обрати внимание, в таких вопросах ИИ не знает контекст переписки, и каждый вопрос для него как новый. Что бы задать ещё один вопрос к ИИ напрямую, снова используй кнопку "задать вопрос вне формата бота"')   
             
             chat.flag(chat_id, "NoRole Q Flag", 0) # опускаем флаг
@@ -411,6 +409,32 @@ async def question_for_ai_norole(chat_id, message_text):
         await bot.send_message(chat_id, f"Произошла ошибка: {e}, свяжитесь с {config['mainconf']['admin_link']}")
         logger.error(f"Ошибка стандартной обработки стандартного вопроса - {e}")
 
+#----------------------------------------------------------------------------------------------------------
+
+
+#------------------------------------------отправка сообщения (с проверкой на длину)-----------------------
+
+async def send_msg(chat_id, message_text):
+    try:
+        message_text = telegramify_markdown.markdownify(message_text)      # чистим markdown
+        max_msg_length = config['mainconf']['max_msg_length']
+        text_lines = message_text.split('\n')
+        current_message = ''
+        for line in text_lines:
+            if len(current_message) + len(line) + 1 > int(max_msg_length):
+                await bot.send_message(chat_id, current_message, parse_mode='MarkdownV2', reply_markup=types.ReplyKeyboardRemove())
+                current_message = line
+            else:
+                if current_message:
+                    current_message += '\n' + line
+                else:
+                    current_message = line
+        if current_message:
+            await bot.send_message(chat_id, current_message, parse_mode='MarkdownV2', reply_markup=types.ReplyKeyboardRemove())   
+    except Exception as e:
+        await bot.send_message(chat_id, f"Ошибка - {e}")   
+        logger.error(f"Ошибка стандартной обработки стандартного вопроса - {e}")
+        
 #----------------------------------------------------------------------------------------------------------
 
 
@@ -514,9 +538,10 @@ async def handle_message(message):
                     await question_for_ai(chat_id, sendername, username, message_text)
 
                             
-        elif message.document.file_name == config_file_name:  # если пришел файл с настройками
-            logger.info(f"{username}, ({chat_id}), поменял файл настроек")                    
-            await handle_set_config(chat_id, message.document.file_id) 
+        elif hasattr(message, 'document') and hasattr(message.document, 'file_name') and message.document.file_name:  # если пришел файл с настройками
+            if message.document.file_name == config_file_name:
+                logger.info(f"{username}, ({chat_id}), поменял файл настроек")                    
+                await handle_set_config(chat_id, message.document.file_id) 
         
     except Exception as e:
         await bot.send_message(chat_id, f"Произошла ошибка: {e}, свяжитесь с {config['mainconf']['admin_link']}")
