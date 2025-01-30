@@ -118,6 +118,34 @@ def remove_limit(chat_id): #обнуление лимита
            
         with open(file_name, mode='w', encoding='utf-8') as file:    # Сохраняем обновленные данные обратно в файл
             json.dump(data, file, ensure_ascii=False, indent=4)
+        
+
+
+def clear_context(chat_id, sender_name=None, user_name=None): #очистка контекста
+
+    file_name = f"{msg_hist_dir}/{chat_id}.json"    # Формируем имя файла
+
+    if os.path.isfile(file_name):     # Если файл существует
+        with open(file_name, mode='r', encoding='utf-8') as file:  #, загружаем существующие данные
+            data = json.load(file)
+            
+        data["Messages"] = []  # пустой массив
+    else: #создаём, если нет
+        
+        today_date = datetime.now().strftime('%Y-%m-%d')        # Если файл не существует, создаем начальную структуру с именем отправителя и счётчиком
+        data = {
+            "Sender Name": sender_name,
+            "Username": user_name,
+            "Messages Today": 0,
+            "Spam Flag": 0,
+            "NoRole Q Flag": 0,
+            "Last Update Date": today_date,
+            "Messages": []
+        }
+        
+    with open(file_name, mode='w', encoding='utf-8') as file:    # Сохраняем обновленные данные обратно в файл
+        json.dump(data, file, ensure_ascii=False, indent=4)
+            
      
      
 def flag(chat_id, param, variable=None): # флаг спам-рассылки (если третий аргумент не передан - возвращает факт состояние ,если передан - меняет состояние на переданный )   

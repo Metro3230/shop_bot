@@ -63,37 +63,6 @@ def user_admin(chat_id):
     return False
 
 
-    
-    
-# async def simple_question(chat_id, message): #---вопрос к ИИ без роли---------------------------------+
-#     try:
-#         if user_admin(chat_id): #если админ
-#             command_parts = message.split(maxsplit=2)         # Разделяем текст команды на части
-
-#             if len(command_parts) < 2:         # Проверяем, что есть и пароль, и новый токен
-#                 await bot.send_message(chat_id, "Формат команды: \"/q вопрос\"\n" +
-#                                         "Обрати внимание, что это обычный запрос к модели CHAT-GPT4o без каких либо " +
-#                                         "предписаний поведения и знания контекста ранней переписки и предыдущих вопросов. " +
-#                                         "Формулируй вопрос развёрнуто, описывая контекст и поведение ассистента, если это требуется. ")
-#                 return
-            
-#             text = command_parts[1]
-            
-#             response = await openAI.req_to_ai_norole(text)   #задаем вопрос ИИ
-#             response_text = response.choices[0].message.content         #парсим текст ответа
-#             response_text = telegramify_markdown.markdownify(response_text)      # чистим markdown
-#             await bot.send_message(chat_id, response_text, parse_mode='MarkdownV2')
-#             await bot.send_message(chat_id, 'обрати внимание, в вопросах через /q ИИ не знает контекст переписки, и каждый вопрос для него как новый')   
-
-#         else:
-#             text = telegramify_markdown.markdownify(config['mainconf']['noadmin_text']) #если не залогинен
-#             await bot.send_message(chat_id, text, parse_mode='MarkdownV2')  
-
-#     except Exception as e:
-#         await bot.send_message(chat_id, f"Произошла ошибка: {e}, свяжитесь с {config['mainconf']['admin_link']}")
-#         logger.error(f"Ошибка вопроса ИИ без роли - {e}")
-
-
 
 async def handle_dw_data(chat_id): #---скачивание данных-------------------------------------+
     try:
@@ -131,7 +100,7 @@ async def handle_dw_config(chat_id,): #---скачивание конфига---
         logger.error(f"Ошибка скачивания данных - {e}")
         
         
-
+        
 async def handle_dw_logs(chat_id,): #---скачивание логов-------------------------------------+
     try:
         if user_admin(chat_id): #если админ
@@ -468,6 +437,8 @@ async def handle_message(message):
         if (message_text):    
             if message_text.startswith('/'): #обработка сервисных команд----+-+
                 if message_text == "/start":
+                    chat.clear_context(chat_id, sendername, username) #удаляем историю переписки при старте бота
+                                        
                     keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)    # Создаем объект клавиатуры
                     markup_1 = types.KeyboardButton(config['mainconf']['btn_text_1'])     # Добавляем кнопки
                     markup_2 = types.KeyboardButton(config['mainconf']['btn_text_2'])
@@ -509,9 +480,6 @@ async def handle_message(message):
                 elif message_text == "/dw_data":
                     await handle_dw_data(chat_id)
                     
-                elif message_text == "/remove_limit": 
-                    await remove_limit(chat_id)
-                    
                 elif message_text == "/dw_config":
                     await handle_dw_config(chat_id)
                     
@@ -536,7 +504,7 @@ async def handle_message(message):
                 elif chat.flag(chat_id, "NoRole Q Flag"):         #если у пользователя поднят флаг ожидания вопроса ИИ без роли
                     await question_for_ai_norole(chat_id, message_text)       
                     
-                elif chat.get_msg_count(chat_id) > int(config['mainconf']['msgs_limit']): #если лимит пользователя на сегодня исчерпан
+                elif chat.get_msg_count(chat_id) > int(config['mainconf']['msgs_limit']) and not user_admin(chat_id): #если лимит пользователя на сегодня исчерпан (и пользовтаель не админ)
                     keyboard = types.InlineKeyboardMarkup()
                     url_button = types.InlineKeyboardButton(text='👀', url=config['mainconf']['contacts'])
                     keyboard.add(url_button)
