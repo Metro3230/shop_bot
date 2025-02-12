@@ -1,26 +1,30 @@
 from dotenv import load_dotenv
 from openai import AsyncOpenAI
 from pathlib import Path
-from config import AIconf
 import os
+import configparser
 
 script_dir = Path(__file__).parent  # Определяем путь к текущему скрипту
 data_dir = script_dir / 'data'
 log_file = script_dir / data_dir / 'log.log'
 env_file = script_dir / data_dir / '.env'
+config_file = data_dir / 'config.ini'
+ 
+config = configparser.ConfigParser()  # настраиваем и читаем файл конфига
+config.read(config_file)
 
 load_dotenv(env_file)
 ai_API_key = os.getenv('OPENAI_API_KEY')    # читаем token ai c .env
  
 client = AsyncOpenAI(
     api_key=ai_API_key,
-    base_url=AIconf.ai_API_url,
+    base_url=config['AIconf']['ai_API_url'],
 )
 
-contacts_key_words = AIconf.contacts_key_words  #массив с ключевыми словами, изменяющими модель поведения
+contacts_key_words = config['AIconf']['contacts_key_words'].split(',')  #массив с ключевыми словами, изменяющими модель поведения
 
-system_role = {"role": "system", "content": AIconf.ai_role}
-system_role_contacts = {"role": "system", "content": AIconf.ai_role + '. ' + AIconf.ai_role_instruction}
+system_role = {"role": "system", "content": config['AIconf']['ai_role']}
+system_role_contacts = {"role": "system", "content": config['AIconf']['ai_role'] + '. ' + config['AIconf']['ai_role_instruction']}
 
 
 def is_part_in_list(strCheck):   #Провера наличия клоючевых слов     

@@ -1,26 +1,30 @@
-this is experiments tg AI chat bot )
+###### this is experiments tg AI chat bot )
 
-#### Как что то исправить или просто переехать?
-    -1. Скачиваешь репозиторий с гита - 
-    -2. С рабочего бота стягиваешь папку data - /dw_data ...
-    -3. ...если нужно, все проверяешь все настройки в а) .env b) config.py
-    -4. docker build . -t shop_bot:vXX
-    -5. После сборки запускать коммандой docker run --name shop_bot_vXX --restart unless-stopped -d shop_bot:vXX
+##### О:
+Программа бота для TG, общаегося за тебя с моделью поведения нужной тебе (например, как продавец консультант в твоём магазине).
 
-
-     
-
-##### Поясняю:
-бот для бизнеса с OpenAI, который общается за тебя и продаёт твой товар/услуги
-
+<br><br>
+#### Как развернуть?
+    1. Клонируешь репозиторий с гита
+    2. правишь конфигурации:
+        а. под новое развёртывание - создаёшь а) .env b) config....ini на основе шаблонов и правишь их под свой проект
+        б. с рабочего бота - стягиваешь папку data - /dw_data ... ( в случае, если это не новое развертывание )
+        ц. правишь тут названия контейнеров в docker и docker-compose
+    3. Просто запускаешь docker-compose up, и радуешься
 
 
-Собираем:
-``` docker build . -t shop_bot:vXX ```
+<br><br>
+#### Напомню:
+запуск в фоне:<br>
+``` docker-compose up -d ```
+
+остановка<br>
+``` docker-compose down ```
  
- Запускаем:
- ```docker run --name shop_bot --restart unless-stopped -d shop_bot:vXX```
+запуск с пересборкой:<br>
+``` docker-compose up -d --build ```
 
-Запуск без остановки по причине невыполнения ничего внутри:
-```docker run --name shop_bot --restart unless-stopped -d shop_bot:vXX tail -f /dev/null```
+перезапуск с пересборкой:<br>
+```docker-compose down && docker-compose up -d --build```
+
 
