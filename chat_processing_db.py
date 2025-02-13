@@ -30,10 +30,10 @@ CREATE TABLE IF NOT EXISTS Users (
     UserID INTEGER PRIMARY KEY,
     SenderName TEXT,
     UserName TEXT,
-    MessagesToday INTEGER,
-    LastUpdate_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    EntryTime TEXT DEFAULT CURRENT_TIMESTAMP,
     Exited INTEGER,
-    Banned INTEGER
+    Banned INTEGER,
+    WhyBan TEXTEXT DEFAULT NULL
 )
 ''')
 
@@ -63,10 +63,16 @@ if conn:
     conn.close()
 
 
+# =======================================================\/ РАБОТА С ПОЛЬЗОВАТЕЛЯМИ \/==========================================================
 
 def add_user(user_id, sender_name=None, user_name=None):    #---------- Добавление нового пользователя ----------
     '''
-    Функция добавления нового пользователя
+    Adds a new user to the database if they do not already exist.
+
+    Parameters:
+    - user_id (int): Unique identifier of the user.
+    - sender_name (str, optional): The sender's name (default is None).
+    - user_name (str, optional): The username (default is None).
     '''
     
     # Подключаемся к базе данных
@@ -80,15 +86,14 @@ def add_user(user_id, sender_name=None, user_name=None):    #---------- Доба
         return
     
     # Значения по умолчанию
-    messages_today = 0
     exit = 0
     banned = 0  # По умолчанию пользователь не забанен
     
     # Вставляем нового пользователя в таблицу Users
     cursor.execute('''
-    INSERT INTO Users (UserID, SenderName, UserName, Exited, MessagesToday, Banned)
-    VALUES (?, ?, ?, ?, ?, ?)
-    ''', (user_id, sender_name, user_name, exit, messages_today, banned))
+    INSERT INTO Users (UserID, SenderName, UserName, Exited, Banned)
+    VALUES (?, ?, ?, ?, ?)
+    ''', (user_id, sender_name, user_name, exit, banned))
     
     # Сохраняем изменения и закрываем соединение
     conn.commit()
@@ -100,6 +105,9 @@ def add_user(user_id, sender_name=None, user_name=None):    #---------- Доба
 def make_admin(user_id):    #---------- Сделать пользователя администратором ----------
     '''
     Функция создания администратора
+    
+    Возвращает False , если пользователь уже админ
+    и True, если добавили его в админа
     '''
     
     conn = sqlite3.connect(user_db)
@@ -109,7 +117,7 @@ def make_admin(user_id):    #---------- Сделать пользователя 
     cursor.execute('SELECT UserID FROM Admins WHERE UserID = ?', (user_id,))
     if cursor.fetchone():
         conn.close()
-        return
+        return False
     
     # Значения по умолчанию для флагов
     spam_flag = 0
@@ -124,6 +132,8 @@ def make_admin(user_id):    #---------- Сделать пользователя 
     conn.commit()
     if conn:
         conn.close()
+        
+    return True
 
 
 
@@ -143,6 +153,30 @@ def remove_admin(user_id):    #---------- Удалить администрат�
     conn.commit()
     if conn:
         conn.close()
+
+
+
+def get_admins():    #---------- Функция возврата всех администраторов ----------
+    '''
+    Функция возврата всех администраторов
+    '''
+    
+    # Подключаемся к базе данных
+    conn = sqlite3.connect(user_db)
+    cursor = conn.cursor()
+    
+    # Выполняем запрос для получения всех администраторов
+    cursor.execute('SELECT UserID FROM Admins')
+    
+    # Получаем все строки результата
+    admins = cursor.fetchall()
+    
+    # Закрываем соединение
+    if conn:
+        conn.close()
+    
+    # Возвращаем список администраторов
+    return [admin[0] for admin in admins]  # Преобразуем список кортежей в список UserID
 
 
 def is_admin(user_id):    #---------- Проверить, является ли пользователь администратором ----------
@@ -166,17 +200,17 @@ def is_admin(user_id):    #---------- Проверить, является ли 
 
 
 
-def get_admins():    #---------- Функция возврата всех администраторов ----------
+def get_users():    #---------- Функция возврата всех пользователей ----------
     '''
-    
+    Функция возврата всех пользователей
     '''
     
     # Подключаемся к базе данных
     conn = sqlite3.connect(user_db)
     cursor = conn.cursor()
     
-    # Выполняем запрос для получения всех администраторов
-    cursor.execute('SELECT UserID FROM Admins')
+    # Выполняем запрос для получения всех пользователей
+    cursor.execute('SELECT UserID FROM Users WHERE Exited = 0')
     
     # Получаем все строки результата
     admins = cursor.fetchall()
@@ -189,6 +223,31 @@ def get_admins():    #---------- Функция возврата всех адм
     return [admin[0] for admin in admins]  # Преобразуем список кортежей в список UserID
 
 
+
+def is_user(user_id):    #---------- Проверить, является ли пользователь пользователем ----------
+    # Подключаемся к базе данных
+    conn = sqlite3.connect(user_db)  # Замените 'your_database.db' на имя вашей базы данных
+    cursor = conn.cursor()
+
+    # Выполняем запрос для проверки наличия пользователя
+    cursor.execute('''
+        SELECT 1 FROM Users WHERE UserID = ?
+    ''', (user_id,))
+
+    # Получаем результат
+    result = cursor.fetchone()
+
+    # Закрываем соединение с базой данных
+    conn.close()
+
+    # Если результат есть, возвращаем True, иначе False
+    return result is not None
+
+# ===========================================================================================================================================
+
+
+
+# =======================================================\/ РАБОТА С СООБЩЕНИЯМИ \/==========================================================
 
 def add_message(user_id, role, text, msg_id=None):    #---------- Функция добавления нового сообщения ---------- 
     '''
@@ -275,6 +334,125 @@ def delete_msgs_flag(user_id):    #---------- Функция "удаления" 
     conn.commit()
     if conn:
         conn.close()
+        
+        
+def hm_responses_today(user_id):    #---------- Функция получения количества сообщений от пользхователя на сегодня ---------- 
+    """
+    Функция получения количества сообщений от пользхователя на сегодня
+    """
+    conn = sqlite3.connect(user_db) 
+    cursor = conn.cursor()
+
+    today_date = datetime.now().strftime('%Y-%m-%d')
+
+    cursor.execute('''
+        SELECT COUNT(*) 
+        FROM Messages 
+        WHERE UserID = ? AND DATE(Sent_at) = ?
+    ''', (user_id, today_date))
+
+    count = cursor.fetchone()[0]
+
+    conn.close()
+
+    return count
+
+# ==========================================================================================================================================
+
+
+
+# ===========================================================\/ СЕРВИСНОЕ \/================================================================
+
+def get_user_stat():    #---------- Функция статистики по пользователям ---------- 
+    # Подключаемся к базе данных
+    conn = sqlite3.connect(user_db)
+    cursor = conn.cursor()
+
+    # Получаем общее количество пользователей
+    cursor.execute("SELECT COUNT(*) FROM Users")
+    total_users = cursor.fetchone()[0]
+
+    # Получаем количество пользователей, вошедших сегодня
+    today = datetime.now().strftime('%Y-%m-%d')
+    cursor.execute("SELECT COUNT(*) FROM Users WHERE date(EntryTime) = ?", (today,))
+    users_entered_today = cursor.fetchone()[0]
+
+    # Получаем количество вышедших пользователей
+    cursor.execute("SELECT COUNT(*) FROM Users WHERE Exited = 1")
+    users_exited = cursor.fetchone()[0]
+
+    # Получаем количество забаненных пользователей
+    cursor.execute("SELECT COUNT(*) FROM Users WHERE Banned = 1")
+    users_banned = cursor.fetchone()[0]
+
+    # Закрываем соединение с базой данных
+    conn.close()
+
+    # Возвращаем кортеж с результатами
+    return (total_users, users_entered_today, users_exited, users_banned)
+
+
+
+def get_message_stat():    #---------- Функция статистики по сообщениям ---------- 
+    # Подключаемся к базе данных
+    conn = sqlite3.connect(user_db)
+    cursor = conn.cursor()
+
+    # Получаем общее количество сообщений
+    cursor.execute("SELECT COUNT(*) FROM Messages")
+    total_messages = cursor.fetchone()[0]
+
+    # Получаем количество сообщений, отправленных сегодня
+    today = datetime.now().strftime('%Y-%m-%d')
+    cursor.execute("SELECT COUNT(*) FROM Messages WHERE date(Sent_at) = ?", (today,))
+    messages_today = cursor.fetchone()[0]
+
+    # Закрываем соединение с базой данных
+    conn.close()
+
+    # Возвращаем кортеж с результатами
+    return (total_messages, messages_today)
+
+
+
+def flag(chat_id, param, variable=None):    #---------- Возвращает или устанавливает значение флага для указанного пользователя ---------- 
+    """
+    Возвращает или устанавливает значение флага для указанного пользователя.
+
+    :param chat_id: UserID пользователя.
+    :param param: Название флага (Exited, Banned, SpamFlag, NoRoleQFlag).
+    :param variable: Если None, возвращает текущее значение флага. Иначе устанавливает флаг в это значение.
+    :return: Текущее значение флага, если variable не указан. Иначе None.
+    """
+    # Определяем, в какой таблице находится флаг
+    if param in ["Exited", "Banned"]:
+        table = "Users"
+    elif param in ["SpamFlag", "NoRoleQFlag"]:
+        table = "Admins"
+    else:
+        raise ValueError(f"Неизвестный параметр: {param}")
+
+    # Подключаемся к базе данных
+    conn = sqlite3.connect(user_db)
+    cursor = conn.cursor()
+
+    if variable is None:
+        # Возвращаем текущее значение флага
+        cursor.execute(f"SELECT {param} FROM {table} WHERE UserID = ?", (chat_id,))
+        result = cursor.fetchone()
+        if result is None:
+            conn.close()
+            raise ValueError(f"Пользователь с UserID {chat_id} в таблице {table} не найден.")
+        conn.close()
+        return result[0]
+    else:
+        # Устанавливаем новое значение флага
+        cursor.execute(f"UPDATE {table} SET {param} = ? WHERE UserID = ?", (variable, chat_id))
+        conn.commit()
+        conn.close()
+        return None
+
+# ==========================================================================================================================================
 
 
 
@@ -288,9 +466,9 @@ def delete_msgs_flag(user_id):    #---------- Функция "удаления" 
 
 
 
+# ============================================================\/ ОТЛАДКА \/=================================================================
 
-
-# Тесты функций работы с БД:
+# # Тесты функций работы с БД:
 
 # add_user("1", "Test User 1", "testuser")
 # add_user("2", "Test User 2", "testuser")
@@ -313,34 +491,77 @@ def delete_msgs_flag(user_id):    #---------- Функция "удаления" 
 
 # print(is_admin("2"))
 
+# # вывести ИД всех пользователей и администраторов
 # print(get_admins())
+# print(get_users())
 
-#  добавление сообщений
-user_id = 2
-add_message(user_id, "assistant", "Hello, world!") 
-time.sleep(1) 
-add_message(user_id, "user", "Hi there!")  
-time.sleep(1) 
-add_message(user_id, "assistant", "Hello 2, world!") 
-time.sleep(1) 
-add_message(user_id, "user", "Hi 2 there!")  
-time.sleep(1) 
-add_message(user_id, "assistant", "Hello 3,  world!") 
-time.sleep(1) 
-add_message(user_id, "user", "Hi 3 there!")  
-time.sleep(1) 
-add_message(user_id, "assistant", "Hello 4, world!") 
-time.sleep(1) 
-add_message(user_id, "user", "Hi 4 there!")  
-time.sleep(1) 
-add_message(user_id, "assistant", "one", "2345") 
-add_message(user_id, "user", "two", "45674")  
+# #  добавление сообщений
+# user_id = 2
+# add_message(user_id, "assistant", "Hello, world!") 
+# time.sleep(1) 
+# add_message(user_id, "user", "Hi there!")  
+# time.sleep(1) 
+# add_message(user_id, "assistant", "Hello 2, world!") 
+# time.sleep(1) 
+# add_message(user_id, "user", "Hi 2 there!")  
+# time.sleep(1) 
+# add_message(user_id, "assistant", "Hello 3,  world!") 
+# time.sleep(1) 
+# add_message(user_id, "user", "Hi 3 there!")  
+# time.sleep(1) 
+# add_message(user_id, "assistant", "Hello 4, world!") 
+# time.sleep(1) 
+# add_message(user_id, "user", "Hi 4 there!")  
+# time.sleep(1) 
+# add_message(user_id, "assistant", "one", "2345") 
+# add_message(user_id, "user", "two", "45674")  
 
 # # получение сообщений 
 # user_id = 2
-# limit = 20
+# limit = 5
 # last_messages = get_last_messages(user_id, limit)
 # for message in last_messages:
 #     print(message)
 
-# delete_msgs_flag(2)
+# # удалить все сообщения для 
+# user_id = 2
+# delete_msgs_flag(user_id)
+
+# # получение коливечтва сообщений за сегоднгя
+# user_id = 1
+# print(hm_responses_today(user_id))
+
+
+# # получение статистики
+# ustats = get_user_stat()
+# print(f"Всего пользователей: {ustats[0]}, Вошедших сегодня: {ustats[1]}, Вышедших: {ustats[2]}, Забаненных: {ustats[3]}")
+# mstats = get_message_stat()
+# print(f"Всего сообщений: {mstats[0]}, Сообщений сегодня: {mstats[1]}")
+
+
+# # проверка функции изменения получения флага
+# user = 7
+# try:
+#     print(flag(user, "Exited"))
+#     flag(user, "Exited", 1)
+#     # print(flag(user, "Exited"))
+#     # flag(user, "Exited", 0)
+# except Exception as e:
+#     print(e)
+    
+
+
+
+# #  проверка, есть ли пользователь
+# user_id = 6  # Замените на нужный user_id
+# if is_user(user_id):
+#     print(f"Пользователь с ID {user_id} существует.")
+# else:
+#     print(f"Пользователь с ID {user_id} не существует.")
+
+
+
+
+
+
+# ==========================================================================================================================================

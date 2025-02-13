@@ -248,7 +248,7 @@ def is_banned(chat_id):
         with open(file_name, mode='r', encoding='utf-8') as file:  # Загружаем существующие данные
             data = json.load(file)
         
-        # Возвращаем значение "Games Count" или 0, если ключ отсутствует
+        # Возвращаем значение "Ban" или 0, если ключ отсутствует
         return data.get("Ban", 0)
 
     
