@@ -451,8 +451,14 @@ async def handle_message(message):
                             
             elif message_text.startswith('/'): # === если это сервисная команда ===
                 
-                if message_text.startswith('/login'):
+                if message_text.startswith('/login'): # логин
                     await login(chat_id, message_text, message_id) 
+                
+                elif message_text.startswith('/restart'): # чистка контекста                    
+                    start_mgs = telegramify_markdown.markdownify(config['mainconf']['restart_message'])
+                    await bot.send_message(chat_id, start_mgs, parse_mode='MarkdownV2')   
+                    chat_db.delete_msgs_flag(chat_id)                    
+                        
                         
                 elif chat_db.is_admin(chat_id): #если админ              
                     if message_text == "/dev":

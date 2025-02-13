@@ -44,3 +44,12 @@ log for AI_BOT
 2025-02-13 21:39:40,775 - __main__ - INFO - Скрипт запущен
 2025-02-13 21:40:31,026 - __main__ - ERROR - Ошибка стандартной обработки стандартного вопроса - Error binding parameter 4: type 'ChatCompletion' is not supported
 2025-02-13 21:41:39,828 - __main__ - INFO - Скрипт запущен
+2025-02-13 21:49:00,054 - __main__ - INFO - Скрипт запущен
+2025-02-13 21:49:05,791 - __main__ - ERROR - Ошибка обработчика любых сообщений - 'restart_message'
+2025-02-13 21:49:18,045 - __main__ - ERROR - Ошибка обработчика любых сообщений - 'restart_message'
+2025-02-13 21:49:39,722 - __main__ - INFO - config.ini заменён пользователем 7080566621
+2025-02-13 21:49:39,722 - __main__ - INFO - alexandr_servionica, (7080566621), поменял файл настроек
+2025-02-13 21:49:40,969 - __main__ - ERROR - Ошибка обработчика любых сообщений - cannot access local variable 'start_mgs' where it is not associated with a value
+2025-02-13 21:51:17,347 - __main__ - INFO - Скрипт запущен
+2025-02-13 21:52:12,323 - __main__ - INFO - Скрипт запущен
+2025-02-13 22:20:00,718 - __main__ - INFO - alexandr_servionica, (7080566621), пытался выполнить /sdf
