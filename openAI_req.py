@@ -14,15 +14,14 @@ config = configparser.ConfigParser()  # настраиваем и читаем �
 config.read(config_file)
 
 load_dotenv(env_file)
-ai_API_key = os.getenv('OPENAI_API_KEY')    # читаем token ai c .env
- 
+ai_API_key = os.getenv('OPENAI_API_KEY')    # читаем token ai c .env 
+ai_model = config['AIconf']['ai_model']
+contacts_key_words = config['AIconf']['contacts_key_words'].split(',')  #массив с ключевыми словами, изменяющими модель поведения
+
 client = AsyncOpenAI(
     api_key=ai_API_key,
     base_url=config['AIconf']['ai_API_url'],
 )
-
-contacts_key_words = config['AIconf']['contacts_key_words'].split(',')  #массив с ключевыми словами, изменяющими модель поведения
-
 system_role = {"role": "system", "content": config['AIconf']['ai_role']}
 system_role_contacts = {"role": "system", "content": config['AIconf']['ai_role'] + '. ' + config['AIconf']['ai_role_instruction']}
 
@@ -40,7 +39,7 @@ async def req_to_ai(msgs):
     else:
         msgs.insert(0, system_role)
     response = await client.chat.completions.create(
-    model="gpt-4o",
+    model=ai_model,
     messages=msgs,
     )
     return response
@@ -49,7 +48,7 @@ async def req_to_ai(msgs):
 async def req_to_ai_norole(msg):
     req = [{"role": "user", "content": msg}]
     response = await client.chat.completions.create(
-    model="gpt-4o",
+    model=ai_model,
     messages=req,
     )
     return response

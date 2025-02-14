@@ -1,4 +1,5 @@
 import chat_processing_db as chat_db
+import export_msgs_to_html as msg_report
 import openAI_req as openAI
 from pathlib import Path
 from dotenv import load_dotenv
@@ -22,6 +23,7 @@ admins_file = data_dir / 'admins.txt'
 config_file_name = 'config.ini'
 config_file = data_dir / config_file_name
 google_data_api = data_dir / 'google_data_api.json'
+msg_report_file = data_dir / 'msg_report.html'
 
 config = configparser.ConfigParser()  # настраиваем и читаем файл конфига
 config.read(config_file)
@@ -93,6 +95,19 @@ async def handle_dw_logs(chat_id,): #---скачивание логов---------
         logger.error(f"Ошибка скачивания логов - {e}")
         
         
+        
+async def handle_dw_messages(chat_id,): #---скачивание репорта по всем сообщениям-------------------------------------+
+    try:
+        msg_report.msg_to_html()
+        with open(msg_report_file, 'rb') as file:
+            await bot.send_document(chat_id, file)
+        logger.info('выгрузка сообщзений скачена пользователем ' + str(chat_id))
+            
+    except Exception as e:
+        await bot.send_message(chat_id, f"Произошла ошибка: {e}, свяжитесь с {config['mainconf']['admin_link']}")
+        logger.error(f"Ошибка скачивания логов - {e}")
+        
+
 
 async def handle_set_config(chat_id, file_id): #---обновление конфига-------------------------------------+
     try:
@@ -464,6 +479,7 @@ async def handle_message(message):
                     if message_text == "/dev":
                         text = ('-----------------для разработчиков-------------------\n' +
                                 '/dw_data - скачать папку с данными\n' +
+                                '/dw_messages - скачать выгрузку сообщений\n' +
                                 '/logs - посмотреть логи\n')          
                         text = telegramify_markdown.markdownify(text)      # чистим markdown
                         await bot.send_message(chat_id, text, parse_mode='MarkdownV2')    
@@ -493,6 +509,9 @@ async def handle_message(message):
                         
                     elif message_text == "/logs":
                         await handle_dw_logs(chat_id) 
+                        
+                    elif message_text == "/dw_messages":
+                        await handle_dw_messages(chat_id) 
                         
                     # elif message_text == "/start_spam_games":
                     #     await games_spam() 
