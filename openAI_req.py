@@ -21,7 +21,9 @@ contacts_key_words = config['AIconf']['contacts_key_words'].split(',')  #мас�
 client = AsyncOpenAI(
     api_key=ai_API_key,
     base_url=config['AIconf']['ai_API_url'],
+    timeout=float(config['AIconf']['ai_req_timeout']),
 )
+
 system_role = {"role": "system", "content": config['AIconf']['ai_role']}
 system_role_contacts = {"role": "system", "content": config['AIconf']['ai_role'] + '. ' + config['AIconf']['ai_role_instruction']}
 

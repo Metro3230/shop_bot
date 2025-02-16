@@ -366,21 +366,76 @@ async def question_for_ai_norole(chat_id, message_text):
 #----------------------------------------стандартная обработка стандартного вопроса------------------------
 
 async def question_for_ai(chat_id, message_text, receiv_message_id):
+    wait_message_sent = False
+    wait_message_id = None
+    typing_task = None
+    wait_message_task = None    
     try:
-        try:
-            await bot.send_chat_action(chat_id, 'typing', timeout=10)
-        except:
-            logger.error(f"send_chat_action не отправлен (для chat_id {chat_id}) -- {e}") 
+        
+        # отправлчяем статус "набирает сообщение" каждые Х секунд
+        async def send_typing_periodically(): 
+            while True:
+                try:
+                    await bot.send_chat_action(chat_id, 'typing', timeout=10)
+                    await asyncio.sleep(7)
+                except Exception as e:
+                    logger.error(f"send_chat_action не отправлен (для chat_id {chat_id}) -- {e}")
+                    break
+                                
+        # задача для отправки успокаивающего сообщения через Х секунд после начала ожидания ответа от API ИИ
+        async def send_wait_message():
+            nonlocal wait_message_sent, wait_message_id
+            await asyncio.sleep(int(config['mainconf']['a_calming_message_delay']))
+            text = telegramify_markdown.markdownify(config['mainconf']['a_calming_message'])      # чистим markdown
+            msg = await bot.send_message(chat_id, text, parse_mode='MarkdownV2', reply_markup=types.ReplyKeyboardRemove())
+            wait_message_sent = True
+            wait_message_id = msg.message_id
+
+        # Запускаем задачи /\
+        typing_task = asyncio.create_task(send_typing_periodically())
+        wait_message_task = asyncio.create_task(send_wait_message())
+                        
         chat_db.add_message(user_id=chat_id, role="user", text=message_text, msg_id=receiv_message_id)      #записываем текст сообщения от ЮЗЕРА в историю сообщений
+
         last_messages = chat_db.get_last_messages(chat_id, config['mainconf']['latest_posts'])    #получаем последние (на глубину контекста) сообщения переписки
-        await bot.send_chat_action(chat_id, 'typing') #отправляем пользователю "набирает сообщение"
+
         response = await openAI.req_to_ai(last_messages)   #отправляем историю чата (чат ид) боту
-        response_text = response.choices[0].message.content         #парсим текст ответа         
-        sent_message_id = await send_msg(chat_id, response_text)    # отправляем, получая id сообщения
+        response_text = response.choices[0].message.content         #парсим текст ответа
+        
+        # Отменяем задачу отправки сообщения "Нужно ещё подождать", если она еще не выполнена
+        wait_message_task.cancel()
+        try:
+            await wait_message_task
+        except asyncio.CancelledError:
+            pass  # Ожидаем завершения задачи, игнорируем ошибку отмены
+        
+        sent_message_id = await send_msg(chat_id, response_text)    # отправляем, получая id сообщения        
+        
         chat_db.add_message(user_id=chat_id, role="assistant", text=response_text, msg_id=sent_message_id)      #записываем текст сообщения от БОТА в историю сообщений 
+
     except Exception as e:
-        await bot.send_message(chat_id, f"Произошла ошибка: {e}, свяжитесь с {config['mainconf']['admin_link']}")
-        logger.error(f"Ошибка стандартной обработки стандартного вопроса - {e}")
+        if str(e) == "Request timed out.":
+            text = telegramify_markdown.markdownify(config['mainconf']['msg_if_req_timeout'])      # чистим markdown
+            await bot.send_message(chat_id, text, parse_mode='MarkdownV2', reply_markup=types.ReplyKeyboardRemove())
+            logger.error(f"Ошибка таймаута при обработке запроса к ИИ от {chat_id} - {e}")
+        else:
+            logger.error(f"Ошибка при обработке запроса к ИИ {chat_id} - {e}")          
+        
+    finally:
+        # Если сообщение "нужно подождать" было отправлено, удаляем его
+        if wait_message_sent:
+            try:
+                await bot.delete_message(chat_id, wait_message_id)
+            except Exception as e:
+                logger.error(f"Не удалось удалить сообщение: {e}")
+
+        # Останавливаем задачу отправки 'typing'
+        if typing_task:
+            typing_task.cancel()
+            try:
+                await typing_task
+            except asyncio.CancelledError:
+                pass  # Ожидаем завершения задачи, игнорируем ошибку отмены
 
 #----------------------------------------------------------------------------------------------------------
 
@@ -436,7 +491,7 @@ async def handle_message(message):
                 chat_db.add_user(chat_id, sendername, username)  # добавляем нового пользователя                    
                 start_mgs = telegramify_markdown.markdownify(config['mainconf']['start_message'])      # получаем стартовое сообщение ( и чистим markdown )  
                 
-                if config['mainconf']['show_buttons']: # если показывать кнопки
+                if int(config['mainconf']['show_buttons']): # если показывать кнопки
                     keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)    # Создаем объект клавиатуры
                     markup_1 = types.KeyboardButton(config['mainconf']['btn_text_1'])     # Добавляем кнопки
                     markup_2 = types.KeyboardButton(config['mainconf']['btn_text_2'])

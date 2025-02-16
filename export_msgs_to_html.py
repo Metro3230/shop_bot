@@ -10,15 +10,20 @@ msg_report = data_dir / 'msg_report.html'
 
 
 
-
 def msg_to_html():
 
     # Подключение к базе данных
     conn = sqlite3.connect(user_db)
     cursor = conn.cursor()
 
-    # Извлечение данных из таблицы Users
-    cursor.execute('SELECT UserID, SenderName, UserName FROM Users')
+    # Извлечение данных из таблицы Users и даты последнего сообщения
+    cursor.execute('''
+        SELECT Users.UserID, Users.SenderName, Users.UserName, MAX(Messages.Sent_at) as LastMessageDate
+        FROM Users
+        LEFT JOIN Messages ON Users.UserID = Messages.UserID
+        GROUP BY Users.UserID
+        ORDER BY LastMessageDate DESC
+    ''')
     users = cursor.fetchall()
 
     # Извлечение данных из таблицы Messages
@@ -44,6 +49,7 @@ def msg_to_html():
                 outline: none;
                 font-size: 15px;
                 user-select: text;
+                
             }
             .active, .collapsible:hover {
                 background-color: #555;
@@ -73,9 +79,11 @@ def msg_to_html():
 
     # Добавление раскрывающихся списков для каждого пользователя
     for user in users:
-        user_id, sender_name, user_name = user
+        user_id, sender_name, user_name, last_message_date = user
         html += f'''
-        <button type="button" class="collapsible">{sender_name} ({user_name}) - ID: {user_id}</button>
+        <button type="button" class="collapsible">
+            {sender_name} ( {user_name} ) - ID: {user_id} - Последнее сообщение: {last_message_date or "Нет сообщений"}
+        </button>
         <div class="content">
             <table border="1">
                 <tr>
@@ -144,3 +152,5 @@ def msg_to_html():
     conn.close()
 
     
+    
+# msg_to_html()
