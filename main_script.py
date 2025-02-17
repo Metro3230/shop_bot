@@ -414,12 +414,9 @@ async def question_for_ai(chat_id, message_text, receiv_message_id):
         chat_db.add_message(user_id=chat_id, role="assistant", text=response_text, msg_id=sent_message_id)      #записываем текст сообщения от БОТА в историю сообщений 
 
     except Exception as e:
-        if str(e) == "Request timed out.":
-            text = telegramify_markdown.markdownify(config['mainconf']['msg_if_req_timeout'])      # чистим markdown
-            await bot.send_message(chat_id, text, parse_mode='MarkdownV2', reply_markup=types.ReplyKeyboardRemove())
-            logger.error(f"Ошибка таймаута при обработке запроса к ИИ от {chat_id} - {e}")
-        else:
-            logger.error(f"Ошибка при обработке запроса к ИИ {chat_id} - {e}")          
+        text = telegramify_markdown.markdownify(config['mainconf']['msg_if_req_error'])      # чистим markdown
+        await bot.send_message(chat_id, text, parse_mode='MarkdownV2', reply_markup=types.ReplyKeyboardRemove())
+        logger.error(f"Ошибка при обработке запроса к ИИ от {chat_id} - {e}")
         
     finally:
         # Если сообщение "нужно подождать" было отправлено, удаляем его
