@@ -149,7 +149,54 @@ async def handle_new_admin_pass(chat_id, message): #----------обновлени
 
     except Exception as e:
         await bot.send_message(chat_id, f"Произошла ошибка: {e}, свяжитесь с {config['mainconf']['admin_link']}")
-        await bot.send_message(chat_id, f"Произошла ошибка: {e}")
+        logger.error(chat_id, f"Произошла ошибка: {e}")
+        
+        
+        
+async def ban(chat_id, message): #----------забанить пользователя--------------+
+    try:
+        old_admin_pass = os.getenv('ADMIN_PASS')       # пишем в лог старый файл на всякий
+        logger.info(f'попытка смены пароля: {old_admin_pass} на новый...')
+
+        command_parts = message.split(maxsplit=2)         # Разделяем текст команды на части
+
+        if len(command_parts) < 3:         # Проверяем, что есть и пароль, и новый токен
+            await bot.send_message(chat_id, "Ошибка: формат команды `/ban id_или_юзернейм причина`")
+            return
+        
+        id_or_username = command_parts[1]
+        why = command_parts[2]
+            
+        result = chat_db.ban(id_or_username, why)       
+                
+        await bot.send_message(chat_id, result)
+
+    except Exception as e:
+        await bot.send_message(chat_id, f"Произошла ошибка: {e}, свяжитесь с {config['mainconf']['admin_link']}")
+        logger.error(chat_id, f"Произошла ошибка: {e}")
+        
+        
+        
+async def unban(chat_id, message): #----------разбанить пользователя--------------+
+    try:
+        old_admin_pass = os.getenv('ADMIN_PASS')       # пишем в лог старый файл на всякий
+        logger.info(f'попытка смены пароля: {old_admin_pass} на новый...')
+
+        command_parts = message.split(maxsplit=2)         # Разделяем текст команды на части
+
+        if len(command_parts) < 2:         # Проверяем, что есть и пароль, и новый токен
+            await bot.send_message(chat_id, "Ошибка: формат команды `/unban id_или_юзернейм`")
+            return
+        
+        id_or_username = command_parts[1]
+            
+        result = chat_db.unban(id_or_username)       
+                
+        await bot.send_message(chat_id, result)
+
+    except Exception as e:
+        await bot.send_message(chat_id, f"Произошла ошибка: {e}, свяжитесь с {config['mainconf']['admin_link']}")
+        logger.error(chat_id, f"Произошла ошибка: {e}")
     
 
 
@@ -500,7 +547,7 @@ async def handle_message(message):
                     keyboard.row(markup_4)
                     keyboard.row(markup_5)
                     await bot.send_message(chat_id, start_mgs, reply_markup=keyboard, parse_mode='MarkdownV2')       # Отправляем сообщение с клавиатурой 
-                    
+                
                 else: # без кнопок
                     await bot.send_message(chat_id, start_mgs, parse_mode='MarkdownV2')       #  без клавиатуры
                     
@@ -510,10 +557,11 @@ async def handle_message(message):
                 await bot.send_message(chat_id, mgs, parse_mode='MarkdownV2')       # Отправляем сообщение           
             
             
-            elif chat_db.flag(chat_id, "Banned"):  # === если пользователь забанен ===
+            elif chat_db.flag(chat_id, "Banned") and not chat_db.is_admin(chat_id) and not message_text.startswith('/login'):  # === если пользователь забанен (и не админ) ===
                 chat_db.add_message(user_id=chat_id, role="user", text=message_text, msg_id=message_id)      #записываем текст в историю (хз зачем)            
                 chat_db.delete_msgs_flag(chat_id)   # удалёнными            
-                await bot.send_message(chat_id, f"{config['mainconf']['if_banned']} {config['mainconf']['admin_link']}")   
+                why_ban = chat_db.flag(chat_id, "WhyBan")
+                await bot.send_message(chat_id, f"{config['mainconf']['if_banned']}\nПричина - {why_ban}.\nЕсли есть вопросы, свяжись с {config['mainconf']['admin_link']}")   
                             
                             
             elif message_text.startswith('/'): # === если это сервисная команда ===
@@ -532,6 +580,8 @@ async def handle_message(message):
                         text = ('-----------------для разработчиков-------------------\n' +
                                 '/dw_data - скачать папку с данными\n' +
                                 '/dw_messages - скачать выгрузку сообщений\n' +
+                                '`/ban id_или_ник причина` - забанить пользователя\n' +
+                                '`/unban id_или_ник` - разабанить пользователя\n' +
                                 '/logs - посмотреть логи\n')          
                         text = telegramify_markdown.markdownify(text)      # чистим markdown
                         await bot.send_message(chat_id, text, parse_mode='MarkdownV2')    
@@ -564,6 +614,12 @@ async def handle_message(message):
                         
                     elif message_text == "/dw_messages":
                         await handle_dw_messages(chat_id) 
+                        
+                    elif message_text.startswith('/ban'):
+                        await ban(chat_id, message_text) 
+                        
+                    elif message_text.startswith('/unban'):
+                        await unban(chat_id, message_text) 
                         
                     # elif message_text == "/start_spam_games":
                     #     await games_spam() 

@@ -243,7 +243,7 @@ def is_user(user_id):    #---------- Проверить, является ли �
 
 # =======================================================\/ РАБОТА С СООБЩЕНИЯМИ \/==========================================================
 
-def add_message(user_id, role, text, msg_id=None):    #---------- Функция добавления нового сообщения ---------- 
+def add_message(user_id, role, text, msg_id):    #---------- Функция добавления нового сообщения ---------- 
     '''
     Функция добавления нового сообщения
     '''
@@ -254,17 +254,10 @@ def add_message(user_id, role, text, msg_id=None):    #---------- Функция
     
     delete = 0
     
-    # Если MsgID не передан, используем автоинкремент        (не пользоваться в проде !!!!)
-    if msg_id is None:
-        cursor.execute('''
-        INSERT INTO Messages (UserID, Role, Text, Del)
-        VALUES (?, ?, ?, ?)
-        ''', (user_id, role, text, delete))
-    else:
-        cursor.execute('''
-        INSERT INTO Messages (MsgID, UserID, Role, Text, Del)
-        VALUES (?, ?, ?, ?, ?)
-        ''', (msg_id, user_id, role, text, delete))
+    cursor.execute('''
+    INSERT INTO Messages (MsgID, UserID, Role, Text, Del)
+    VALUES (?, ?, ?, ?, ?)
+    ''', (msg_id, user_id, role, text, delete))
     
     # Сохраняем изменения и закрываем соединение
     conn.commit()
@@ -414,12 +407,12 @@ def flag(chat_id, param, variable=None):    #---------- Возвращает и�
     Возвращает или устанавливает значение флага для указанного пользователя.
 
     :param chat_id: UserID пользователя.
-    :param param: Название флага (Exited, Banned, SpamFlag, NoRoleQFlag).
+    :param param: Название флага (Exited, Banned, WhyBan, SpamFlag, NoRoleQFlag).
     :param variable: Если None, возвращает текущее значение флага. Иначе устанавливает флаг в это значение.
     :return: Текущее значение флага, если variable не указан. Иначе None.
     """
     # Определяем, в какой таблице находится флаг
-    if param in ["Exited", "Banned"]:
+    if param in ["Exited", "Banned", "WhyBan"]:
         table = "Users"
     elif param in ["SpamFlag", "NoRoleQFlag"]:
         table = "Admins"
@@ -445,6 +438,106 @@ def flag(chat_id, param, variable=None):    #---------- Возвращает и�
         conn.commit()
         conn.close()
         return None
+    
+    
+
+def ban(user_identifier, reason):
+    """
+    Бан пользователя по UserID или UserName.
+
+    :param user_identifier: UserID (int) или UserName (str)
+    :param reason: причина бана (str)
+    
+    :return: сообщение с результатом операции
+    """
+    conn = sqlite3.connect(user_db)
+    cursor = conn.cursor()
+    
+    user_id = None
+
+    # Пытаемся интерпретировать user_identifier как UserID (число)
+    if user_identifier.isdigit():
+        cursor.execute('SELECT UserID FROM Users WHERE UserID = ?', (int(user_identifier),))
+        result = cursor.fetchone()
+        if result is not None:
+            user_id = result[0]
+
+    # Если UserID не найден, ищем по UserName
+    if user_id is None:
+        cursor.execute('SELECT UserID FROM Users WHERE UserName = ?', (user_identifier,))
+        result = cursor.fetchone()
+        if result is not None:
+            user_id = result[0]
+
+    # Если пользователь не найден ни по UserID, ни по UserName
+    if user_id is None:
+        return (f"Пользователь с UserID/UserName '{user_identifier}' не найден.")
+
+    # Баним пользователя
+    cursor.execute('''
+        UPDATE Users 
+        SET Banned = 1, WhyBan = ? 
+        WHERE UserID = ?
+    ''', (reason, user_id))
+
+    # Удаляем все сообщения пользователя (выставляем флаг Del в 1)
+    cursor.execute('''
+        UPDATE Messages 
+        SET Del = 1 
+        WHERE UserID = ?
+    ''', (user_id,))
+
+    # Сохраняем изменения в базе данных
+    conn.commit()
+    return f"Пользователь {user_identifier} забанен. Все его сообщения удалены."
+
+
+
+def unban(user_identifier):
+    """
+    Разбан пользователя по UserID или UserName.
+
+    :param user_identifier: UserID (str) или UserName (str)
+    
+    :return: сообщение с результатом операции
+    """
+    conn = sqlite3.connect(user_db)
+    cursor = conn.cursor()
+    
+    user_id = None
+
+    # Пытаемся интерпретировать user_identifier как UserID (число)
+    if user_identifier.isdigit():
+        cursor.execute('SELECT UserID FROM Users WHERE UserID = ?', (int(user_identifier),))
+        result = cursor.fetchone()
+        if result is not None:
+            user_id = result[0]
+
+    # Если UserID не найден, ищем по UserName
+    if user_id is None:
+        cursor.execute('SELECT UserID FROM Users WHERE UserName = ?', (user_identifier,))
+        result = cursor.fetchone()
+        if result is not None:
+            user_id = result[0]
+
+    # Если пользователь не найден ни по UserID, ни по UserName
+    if user_id is None:
+        return (f"Пользователь с UserID/UserName '{user_identifier}' не найден.")
+
+    # разбаним пользователя
+    cursor.execute('''
+        UPDATE Users 
+        SET Banned = 0
+        WHERE UserID = ?
+    ''', (user_id,))
+
+    # Сохраняем изменения в базе данных
+    conn.commit()
+    return f"Пользователь {user_identifier} разабанен. Он может начать чат заново."
+
+    
+    
+    
 
 # ==========================================================================================================================================
 
