@@ -128,8 +128,7 @@ async def handle_set_config(chat_id, file_id): #---обновление конф
         
 async def handle_new_admin_pass(chat_id, message): #----------обновление  пароля--------------+
     try:
-        old_admin_pass = os.getenv('ADMIN_PASS')       # пишем в лог старый файл на всякий
-        logger.info(f'попытка смены пароля: {old_admin_pass} на новый...')
+        logger.info(f'попытка смены пароля на новый пользователем {chat_id}')
 
         command_parts = message.split(maxsplit=2)         # Разделяем текст команды на части
 

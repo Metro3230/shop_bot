@@ -8,8 +8,6 @@ user_db = data_dir / 'users.db'
 msg_report = data_dir / 'msg_report.html'
 
 
-
-
 def msg_to_html():
 
     # Подключение к базе данных
@@ -18,7 +16,14 @@ def msg_to_html():
 
     # Извлечение данных из таблицы Users и даты последнего сообщения
     cursor.execute('''
-        SELECT Users.UserID, Users.SenderName, Users.UserName, MAX(Messages.Sent_at) as LastMessageDate
+        SELECT 
+            Users.UserID, 
+            Users.SenderName, 
+            Users.UserName, 
+            MAX(Messages.Sent_at) as LastMessageDate,
+            COUNT(Messages.MsgID) as TotalMessages,
+            Users.Banned,
+            Users.WhyBan
         FROM Users
         LEFT JOIN Messages ON Users.UserID = Messages.UserID
         GROUP BY Users.UserID
@@ -51,6 +56,12 @@ def msg_to_html():
                 user-select: text;
                 
             }
+            .collapsible.banned {
+                background-color: #7F2222; /* Красный для забаненных */
+            }
+            .collapsible.not-banned {
+                background-color: #365574; /* Зелёный для не забаненных */
+            }
             .active, .collapsible:hover {
                 background-color: #555;
             }
@@ -79,10 +90,12 @@ def msg_to_html():
 
     # Добавление раскрывающихся списков для каждого пользователя
     for user in users:
-        user_id, sender_name, user_name, last_message_date = user
+        user_id, sender_name, user_name, last_message_date, total_messages, banned, why_ban = user
+        ban_class = "banned" if banned else "not-banned"
+        ban_reason = f" - Причина бана: {why_ban}" if banned and why_ban else ""
         html += f'''
-        <button type="button" class="collapsible">
-            {sender_name} ( {user_name} ) - ID: {user_id} - Последнее сообщение: {last_message_date or "Нет сообщений"}
+        <button type="button" class="collapsible {ban_class}">
+            {sender_name} ({user_name}) - ID: {user_id} - Последнее сообщение: {last_message_date or "Нет сообщений"} - Всего сообщений: {total_messages} {ban_reason}
         </button>
         <div class="content">
             <table border="1">
