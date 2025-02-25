@@ -3,6 +3,7 @@ from openai import AsyncOpenAI, APIError
 from pathlib import Path
 import os
 import configparser
+import random
 
 script_dir = Path(__file__).parent  # Определяем путь к текущему скрипту
 data_dir = script_dir / 'data'
@@ -82,7 +83,7 @@ async def req_to_ai(msgs):
         raise Exception("All API keys failed") from last_exception  # поднимаем исключение с причиной
     else:
         raise Exception("No API keys available or no exception was caught")  # что то другое
-    
+
 
 
 async def req_to_ai_norole(msg):
