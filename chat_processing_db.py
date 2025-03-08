@@ -254,10 +254,14 @@ def add_message(user_id, role, text, msg_id):    #---------- Функция до
     
     delete = 0
     
+    # Получаем текущее локальное время
+    local_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+
+    # Вставляем новое сообщение с локальным временем
     cursor.execute('''
-    INSERT INTO Messages (MsgID, UserID, Role, Text, Del)
-    VALUES (?, ?, ?, ?, ?)
-    ''', (msg_id, user_id, role, text, delete))
+    INSERT INTO Messages (MsgID, UserID, Role, Text, Del, Sent_at)
+    VALUES (?, ?, ?, ?, ?, ?)
+    ''', (msg_id, user_id, role, text, delete, local_time))
     
     # Сохраняем изменения и закрываем соединение
     conn.commit()
@@ -606,8 +610,11 @@ def unban(user_identifier):
 # delete_msgs_flag(user_id)
 
 # # получение коливечтва сообщений за сегоднгя
-# user_id = 1
+# user_id = 7696076579
 # print(hm_responses_today(user_id))
+# print(is_admin(user_id))
+
+# print(datetime.now())
 
 
 # # получение статистики
