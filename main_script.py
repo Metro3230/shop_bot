@@ -569,9 +569,14 @@ async def handle_message(message):
                     await login(chat_id, message_text, message_id) 
                 
                 elif message_text.startswith('/restart'): # чистка контекста                    
-                    start_mgs = telegramify_markdown.markdownify(config['mainconf']['restart_message'])
-                    await bot.send_message(chat_id, start_mgs, parse_mode='MarkdownV2')   
-                    chat_db.delete_msgs_flag(chat_id)                    
+                    snd_mgs = telegramify_markdown.markdownify(config['mainconf']['restart_message'])
+                    await bot.send_message(chat_id, snd_mgs, parse_mode='MarkdownV2')   
+                    chat_db.delete_msgs_flag(chat_id)     
+                
+                elif message_text.startswith('/instruction'): # инструкция                     
+                    snd_mgs = telegramify_markdown.markdownify(config['mainconf']['about_message'])
+                    await bot.send_message(chat_id, snd_mgs, parse_mode='MarkdownV2')   
+                    chat_db.delete_msgs_flag(chat_id)                     
                         
                         
                 elif chat_db.is_admin(chat_id): #если админ              
