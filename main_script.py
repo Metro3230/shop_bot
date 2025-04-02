@@ -51,6 +51,7 @@ logging.getLogger().setLevel(logging.WARNING)
 
 temp_spam_text = None
 
+
     
 #-------------------------------------\/-сервисные команды-\/----------------------------------------------------
 
@@ -289,7 +290,28 @@ def update_env_variable(key, value): #---функция обновления п�
         file.writelines(new_lines)
     
     load_dotenv(env_file, override=True)    # повторно загружаем значения из env с перезаписью
+
+                
+
+async def handle_limits(chat_id): #---отправка остатков лимитов-----------------+
+    try:        
+        free_msgs_lim = max(0, int(config['mainconf']['responses_limit']) - chat_db.hm_responses_today(chat_id)) # разность дневного лимита и сообщений за сегодня, но не < 0 
         
+        if chat_db.is_prem(chat_id):
+            prem_msgs_lim = chat_db.flag(chat_id, "Free_msgs")
+        else:
+            prem_msgs_lim = 0
+            
+        text = ('*Остатки ответов ИИ:*\n' +
+                f'Бесплатно сегодня - {free_msgs_lim}\n' +
+                f'Остаток за 🌟 - {prem_msgs_lim}')
+        text = telegramify_markdown.markdownify(text)      # чистим markdown
+        await bot.send_message(chat_id, text, parse_mode='MarkdownV2')  
+          
+    except Exception as e:
+        await bot.send_message(chat_id, f"Произошла ошибка: {e}, свяжитесь с {config['mainconf']['admin_link']}")
+        logger.error(f"Ошибка отправки остатков лимитов - {e}")
+
 #----------------------------------------------------------------------------------------------------------
 
 
@@ -575,8 +597,10 @@ async def handle_message(message):
                 
                 elif message_text.startswith('/instruction'): # инструкция                     
                     snd_mgs = telegramify_markdown.markdownify(config['mainconf']['about_message'])
-                    await bot.send_message(chat_id, snd_mgs, parse_mode='MarkdownV2')   
-                    chat_db.delete_msgs_flag(chat_id)                     
+                    await bot.send_message(chat_id, snd_mgs, parse_mode='MarkdownV2')               
+                
+                elif message_text.startswith('/limits'): # лимиты   
+                    await handle_limits(chat_id)
                         
                         
                 elif chat_db.is_admin(chat_id): #если админ              
@@ -643,10 +667,31 @@ async def handle_message(message):
                     await question_for_ai_norole(chat_id, message_text)       
                     
                 elif chat_db.hm_responses_today(chat_id) > int(config['mainconf']['responses_limit']) and not chat_db.is_admin(chat_id): #если лимит пользователя на сегодня исчерпан (и пользовтаель не админ)
-                    keyboard = types.InlineKeyboardMarkup()
-                    url_button = types.InlineKeyboardButton(text='👀', url=config['mainconf']['contacts'])
-                    keyboard.add(url_button)
-                    await bot.send_message(chat_id, config['mainconf']['limit_msg'], reply_markup=keyboard)                  # Отправка сообщение с ссылкой
+                    
+                    if config['mainconf']['payment_option'] == "1": #вариант с оплатой
+                        
+                        if (chat_db.is_prem(chat_id) and chat_db.flag(chat_id, "Free_msgs")): # если у пользователя есть премиум и наличие некого количества премиум сообщений                            
+                            await question_for_ai(chat_id, message_text, message_id)
+                            chat_db.flag(chat_id, "Free_msgs", chat_db.flag(chat_id, "Free_msgs") - 1) # минус 1 премиум сообщение
+                        else:
+                            # Отправляем инвойс                         
+                            await bot.send_invoice(
+                                chat_id=chat_id,
+                                title=config['mainconf']['payment_title'],
+                                description=config['mainconf']['payment_description'],
+                                invoice_payload="plus_10_answer",
+                                currency="XTR",  
+                                prices=[types.LabeledPrice(label="XTR", amount=config['mainconf']['price'])],  
+                                provider_token=None,  
+                                start_parameter="buy_stars",
+                                is_flexible=False,
+                            )
+                    
+                    else: #просто отправка ссылки
+                        keyboard = types.InlineKeyboardMarkup()
+                        url_button = types.InlineKeyboardButton(text='👀', url=config['mainconf']['contacts'])
+                        keyboard.add(url_button)
+                        await bot.send_message(chat_id, config['mainconf']['limit_msg'], reply_markup=keyboard)                  # Отправка сообщение с ссылкой
                     
                 else:
                     await question_for_ai(chat_id, message_text, message_id)
@@ -667,10 +712,53 @@ async def handle_message(message):
         logger.error(f"Ошибка обработчика любых сообщений - {e}")
 
 
+               
+        
+# # Обработка оплаты звёздочками  ✯ 
+# @bot.callback_query_handler(func=lambda call: call.data.startswith('buy_'))
+# async def process_purchase(call: types.CallbackQuery):
+    
+#     # Отправляем инвойс (provider_token НЕ нужен!)
+#     await bot.send_invoice(
+#         chat_id=call.message.chat.id,
+#         title=config['mainconf']['payment_title'],
+#         description=config['mainconf']['payment_description'],
+#         invoice_payload=f"{call.from_user.id}:{item}",
+#         currency="XTR",  
+#         prices=[types.LabeledPrice(label=item, amount=price)],  # Умножаем на 100 (центы)
+#         provider_token=None,  
+#         start_parameter="buy_stars",
+#         is_flexible=False,
+#     )
+    
+#     await bot.answer_callback_query(call.id)
+    
 
+@bot.pre_checkout_query_handler(func=lambda query: True) # проверка перед оплатой
+async def pre_checkout(pre_checkout_query: types.PreCheckoutQuery):
+    try:
+        user_id = pre_checkout_query.from_user.id
+        # payload = pre_checkout_query.invoice_payload 
+        # amount = pre_checkout_query.total_amount   
+        chat_db.make_prem(user_id)
+        chat_db.flag(user_id, "Free_msgs", chat_db.flag(user_id, "Free_msgs") + int(config['mainconf']['responses_limit'])) # плюс ... к параметру
+        await bot.answer_pre_checkout_query(pre_checkout_query.id, ok=True)
+    except Exception as e:
+        logger.error(f"Ошибка контроля оплаты - {e}")
+        await bot.answer_pre_checkout_query(pre_checkout_query.id, ok=False, error_message=f"Что-то не так, свяжитесь с {config['mainconf']['admin_link']}")
+
+
+@bot.message_handler(content_types=['successful_payment']) # после успешной оплаты
+async def successful_payment(message: types.Message):    
+    await bot.send_message(message.chat.id, "Окей, продолжай 😏")
+        
+        
+           
+       
+       
        
 
-# Обработчик нажатий на кнопки
+# Обработчик нажатий на другие кнопки
 @bot.callback_query_handler(func=lambda call: True)
 async def callback_query(call):
     try:
@@ -717,6 +805,11 @@ async def callback_query(call):
         logger.error(f"Ошибка обработки нажатия на inline кнопки - {e}")
         
         
+
+
+
+
+
 #-------------------------------------------------------------------------------------------------------------
 
 

@@ -41,6 +41,16 @@ CREATE TABLE IF NOT EXISTS Admins (
 ''')
 
 cursor.execute('''
+CREATE TABLE IF NOT EXISTS Premium ( 
+    UserID INTEGER PRIMARY KEY,
+    Type INTEGER,
+    Free_msgs INTEGER,
+    Date TEXT DEFAULT NULL, 
+    FOREIGN KEY (UserID) REFERENCES Users(UserID) ON DELETE CASCADE
+)
+''')
+
+cursor.execute('''
 CREATE TABLE IF NOT EXISTS Messages (
     MsgID INTEGER PRIMARY KEY,
     UserID INTEGER,
@@ -237,6 +247,179 @@ def is_user(user_id):    #---------- Проверить, является ли �
     # Если результат есть, возвращаем True, иначе False
     return result is not None
 
+
+
+def make_prem(user_id):    #---------- Сделать пользователя премиум ----------
+    '''
+    Функция создания премиум пользователя
+    
+    Возвращает False , если пользователь уже админ
+    и True, если добавили его в админа
+    '''
+    
+    conn = sqlite3.connect(user_db)
+    cursor = conn.cursor()
+    
+    # Проверяем, существует ли пользователь в таблице Premium
+    cursor.execute('SELECT UserID FROM Premium WHERE UserID = ?', (user_id,))
+    if cursor.fetchone():
+        conn.close()
+        return False
+    
+    # Значения по умолчанию для флагов
+    Type = 0
+    Free_msgs = 0
+    
+    # Вставляем пользователя в таблицу Premium
+    cursor.execute('''
+    INSERT INTO Premium (UserID, Type, Free_msgs)
+    VALUES (?, ?, ?)
+    ''', (user_id, Type, Free_msgs))
+    
+    conn.commit()
+    if conn:
+        conn.close()
+        
+    return True
+
+
+
+def remove_prem(user_id):    #---------- Удалить премиум пользователя ----------
+    '''
+    Функция удаления премиум пользователя
+    '''
+    
+    # Подключаемся к базе данных
+    conn = sqlite3.connect(user_db)
+    cursor = conn.cursor()
+    
+    # Удаляем администратора из таблицы Admins
+    cursor.execute('DELETE FROM Premium WHERE UserID = ?', (user_id,))
+        
+    # Сохраняем изменения и закрываем соединение
+    conn.commit()
+    if conn:
+        conn.close()
+
+
+
+def is_prem(user_id):    #---------- Проверить, является ли пользователь премиум ----------
+    '''
+    Функция проверки, является ли пользователь премиум пользователем
+    '''
+    
+    # Подключаемся к базе данных
+    conn = sqlite3.connect(user_db)
+    cursor = conn.cursor()
+    
+    # Проверяем, есть ли пользователь в таблице Admins
+    cursor.execute('SELECT UserID FROM Premium WHERE UserID = ?', (user_id,))
+    result = cursor.fetchone()
+    
+    if conn:
+        conn.close()
+    
+    # Если результат есть, возвращаем True, иначе False
+    return result is not None
+
+
+
+
+def ban(user_identifier, reason):    #---------- Бан пользователя ---------- 
+    """
+    Бан пользователя по UserID или UserName.
+
+    :param user_identifier: UserID (int) или UserName (str)
+    :param reason: причина бана (str)
+    
+    :return: сообщение с результатом операции
+    """
+    conn = sqlite3.connect(user_db)
+    cursor = conn.cursor()
+    
+    user_id = None
+
+    # Пытаемся интерпретировать user_identifier как UserID (число)
+    if user_identifier.isdigit():
+        cursor.execute('SELECT UserID FROM Users WHERE UserID = ?', (int(user_identifier),))
+        result = cursor.fetchone()
+        if result is not None:
+            user_id = result[0]
+
+    # Если UserID не найден, ищем по UserName
+    if user_id is None:
+        cursor.execute('SELECT UserID FROM Users WHERE UserName = ?', (user_identifier,))
+        result = cursor.fetchone()
+        if result is not None:
+            user_id = result[0]
+
+    # Если пользователь не найден ни по UserID, ни по UserName
+    if user_id is None:
+        return (f"Пользователь с UserID/UserName '{user_identifier}' не найден.")
+
+    # Баним пользователя
+    cursor.execute('''
+        UPDATE Users 
+        SET Banned = 1, WhyBan = ? 
+        WHERE UserID = ?
+    ''', (reason, user_id))
+
+    # Удаляем все сообщения пользователя (выставляем флаг Del в 1)
+    cursor.execute('''
+        UPDATE Messages 
+        SET Del = 1 
+        WHERE UserID = ?
+    ''', (user_id,))
+
+    # Сохраняем изменения в базе данных
+    conn.commit()
+    return f"Пользователь {user_identifier} забанен. Все его сообщения удалены."
+
+
+
+def unban(user_identifier):    #---------- разбан пользователя ---------- 
+    """
+    Разбан пользователя по UserID или UserName.
+
+    :param user_identifier: UserID (str) или UserName (str)
+    
+    :return: сообщение с результатом операции
+    """
+    conn = sqlite3.connect(user_db)
+    cursor = conn.cursor()
+    
+    user_id = None
+
+    # Пытаемся интерпретировать user_identifier как UserID (число)
+    if user_identifier.isdigit():
+        cursor.execute('SELECT UserID FROM Users WHERE UserID = ?', (int(user_identifier),))
+        result = cursor.fetchone()
+        if result is not None:
+            user_id = result[0]
+
+    # Если UserID не найден, ищем по UserName
+    if user_id is None:
+        cursor.execute('SELECT UserID FROM Users WHERE UserName = ?', (user_identifier,))
+        result = cursor.fetchone()
+        if result is not None:
+            user_id = result[0]
+
+    # Если пользователь не найден ни по UserID, ни по UserName
+    if user_id is None:
+        return (f"Пользователь с UserID/UserName '{user_identifier}' не найден.")
+
+    # разбаним пользователя
+    cursor.execute('''
+        UPDATE Users 
+        SET Banned = 0
+        WHERE UserID = ?
+    ''', (user_id,))
+
+    # Сохраняем изменения в базе данных
+    conn.commit()
+    return f"Пользователь {user_identifier} разабанен. Он может начать чат заново."
+
+
 # ===========================================================================================================================================
 
 
@@ -420,6 +603,8 @@ def flag(chat_id, param, variable=None):    #---------- Возвращает и�
         table = "Users"
     elif param in ["SpamFlag", "NoRoleQFlag"]:
         table = "Admins"
+    elif param in ["Type", "Free_msgs", "Date"]:
+        table = "Premium"
     else:
         raise ValueError(f"Неизвестный параметр: {param}")
 
@@ -443,105 +628,7 @@ def flag(chat_id, param, variable=None):    #---------- Возвращает и�
         conn.close()
         return None
     
-    
-
-def ban(user_identifier, reason):
-    """
-    Бан пользователя по UserID или UserName.
-
-    :param user_identifier: UserID (int) или UserName (str)
-    :param reason: причина бана (str)
-    
-    :return: сообщение с результатом операции
-    """
-    conn = sqlite3.connect(user_db)
-    cursor = conn.cursor()
-    
-    user_id = None
-
-    # Пытаемся интерпретировать user_identifier как UserID (число)
-    if user_identifier.isdigit():
-        cursor.execute('SELECT UserID FROM Users WHERE UserID = ?', (int(user_identifier),))
-        result = cursor.fetchone()
-        if result is not None:
-            user_id = result[0]
-
-    # Если UserID не найден, ищем по UserName
-    if user_id is None:
-        cursor.execute('SELECT UserID FROM Users WHERE UserName = ?', (user_identifier,))
-        result = cursor.fetchone()
-        if result is not None:
-            user_id = result[0]
-
-    # Если пользователь не найден ни по UserID, ни по UserName
-    if user_id is None:
-        return (f"Пользователь с UserID/UserName '{user_identifier}' не найден.")
-
-    # Баним пользователя
-    cursor.execute('''
-        UPDATE Users 
-        SET Banned = 1, WhyBan = ? 
-        WHERE UserID = ?
-    ''', (reason, user_id))
-
-    # Удаляем все сообщения пользователя (выставляем флаг Del в 1)
-    cursor.execute('''
-        UPDATE Messages 
-        SET Del = 1 
-        WHERE UserID = ?
-    ''', (user_id,))
-
-    # Сохраняем изменения в базе данных
-    conn.commit()
-    return f"Пользователь {user_identifier} забанен. Все его сообщения удалены."
-
-
-
-def unban(user_identifier):
-    """
-    Разбан пользователя по UserID или UserName.
-
-    :param user_identifier: UserID (str) или UserName (str)
-    
-    :return: сообщение с результатом операции
-    """
-    conn = sqlite3.connect(user_db)
-    cursor = conn.cursor()
-    
-    user_id = None
-
-    # Пытаемся интерпретировать user_identifier как UserID (число)
-    if user_identifier.isdigit():
-        cursor.execute('SELECT UserID FROM Users WHERE UserID = ?', (int(user_identifier),))
-        result = cursor.fetchone()
-        if result is not None:
-            user_id = result[0]
-
-    # Если UserID не найден, ищем по UserName
-    if user_id is None:
-        cursor.execute('SELECT UserID FROM Users WHERE UserName = ?', (user_identifier,))
-        result = cursor.fetchone()
-        if result is not None:
-            user_id = result[0]
-
-    # Если пользователь не найден ни по UserID, ни по UserName
-    if user_id is None:
-        return (f"Пользователь с UserID/UserName '{user_identifier}' не найден.")
-
-    # разбаним пользователя
-    cursor.execute('''
-        UPDATE Users 
-        SET Banned = 0
-        WHERE UserID = ?
-    ''', (user_id,))
-
-    # Сохраняем изменения в базе данных
-    conn.commit()
-    return f"Пользователь {user_identifier} разабанен. Он может начать чат заново."
-
-    
-    
-    
+        
 
 # ==========================================================================================================================================
 
@@ -646,6 +733,15 @@ def unban(user_identifier):
 
 
 
+# тест премиум функций
+# user_id = "7080566621"
+# print(make_prem(user_id))
+# remove_prem(user_id)
+
+# flag(user_id, "Free_msgs", 1)
+# print(flag(user_id, "Free_msgs"))
+# flag(user_id, "Free_msgs", flag(user_id, "Free_msgs") - 1) # минус 1 к параметру
+# print(flag(user_id, "Free_msgs"))
 
 
 # ==========================================================================================================================================
